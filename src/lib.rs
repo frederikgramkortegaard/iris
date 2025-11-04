@@ -8,3 +8,5 @@ pub mod parser;
 pub mod ast;
 pub mod types;
 pub mod cli;
+pub mod visitor;
+pub mod passes;
