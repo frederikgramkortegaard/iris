@@ -37,10 +37,14 @@ impl Visitor for CountingPass {
         self.walk_program(program);
 
         // Report the counts
-        self.diagnostics.info(format!("Functions: {}", self.num_functions));
-        self.diagnostics.info(format!("Statements: {}", self.num_statements));
-        self.diagnostics.info(format!("Expressions: {}", self.num_expressions));
-        self.diagnostics.info(format!("Variables: {}", self.num_variables));
+        self.diagnostics
+            .info(format!("Functions: {}", self.num_functions));
+        self.diagnostics
+            .info(format!("Statements: {}", self.num_statements));
+        self.diagnostics
+            .info(format!("Expressions: {}", self.num_expressions));
+        self.diagnostics
+            .info(format!("Variables: {}", self.num_variables));
     }
 
     fn visit_function(&mut self, function: &Function) {

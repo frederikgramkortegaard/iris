@@ -2,6 +2,7 @@ use crate::lexer::LexerContext;
 use crate::parser::ParserContext;
 use crate::passes::PassManager;
 use crate::passes::counting::CountingPass;
+use crate::passes::print::PrintPass;
 use std::fs;
 
 /// Runs the compiler CLI with the given command-line arguments.
@@ -35,8 +36,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     // Run passes
     let mut pass_manager = PassManager::new();
-    let counting_pass = CountingPass::new();
-    pass_manager.add_pass(Box::new(counting_pass));
+    pass_manager.add_pass(Box::new(CountingPass::new()));
+    pass_manager.add_pass(Box::new(PrintPass::new()));
 
     pass_manager.run(&program).map_err(|_| {
         "Compilation failed due to errors"

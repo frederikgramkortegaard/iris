@@ -2,6 +2,7 @@ use crate::ast::Program;
 use crate::visitor::Visitor;
 
 pub mod counting;
+pub mod print;
 
 pub struct PassManager {
     passes: Vec<Box<dyn Visitor>>,
