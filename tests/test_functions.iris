@@ -1,0 +1,55 @@
+fn no_args() -> f64 {
+  return 42
+}
+
+fn one_arg(x: f64) -> f64 {
+  return x
+}
+
+fn two_args(x: f64, y: f64) -> f64 {
+  return x + y
+}
+
+fn many_args(a: f64, b: f64, c: f64, d: f64, e: f64) -> f64 {
+  return a + b + c + d + e
+}
+
+fn with_default(x: f64, y: f64 = 10) -> f64 {
+  return x + y
+}
+
+fn multiple_defaults(a: f64, b: f64 = 5, c: f64 = 10) -> f64 {
+  return a + b + c
+}
+
+fn recursion(n: f64) -> f64 {
+  if (n <= 0) {
+    return 0
+  } else {
+    return n + recursion(n - 1)
+  }
+}
+
+fn mutual_recursion_a(n: f64) -> f64 {
+  if (n <= 0) {
+    return 0
+  } else {
+    return mutual_recursion_b(n - 1)
+  }
+}
+
+fn mutual_recursion_b(n: f64) -> f64 {
+  if (n <= 0) {
+    return 1
+  } else {
+    return mutual_recursion_a(n - 1)
+  }
+}
+
+fn nested_calls(x: f64) -> f64 {
+  return one_arg(two_args(x, x))
+}
+
+fn call_with_expressions(x: f64) -> f64 {
+  return two_args(x + 1, x * 2)
+}

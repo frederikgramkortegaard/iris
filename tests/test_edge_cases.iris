@@ -1,0 +1,66 @@
+fn empty_function() -> f64 {
+  return 0
+}
+
+fn single_statement() -> f64 {
+  return 1
+}
+
+fn deeply_nested(n: f64) -> f64 {
+  if (n > 0) {
+    if (n > 1) {
+      if (n > 2) {
+        if (n > 3) {
+          if (n > 4) {
+            return n
+          } else {
+            return 4
+          }
+        } else {
+          return 3
+        }
+      } else {
+        return 2
+      }
+    } else {
+      return 1
+    }
+  } else {
+    return 0
+  }
+}
+
+fn complex_expression() -> f64 {
+  return ((((1 + 2) * 3) - 4) / 5) + ((6 * 7) - (8 / 2))
+}
+
+fn long_computation() -> f64 {
+  var a = 1
+  var b = 2
+  var c = 3
+  var d = 4
+  var e = 5
+  var f = 6
+  var g = 7
+  var h = 8
+  var i = 9
+  var j = 10
+  return a + b + c + d + e + f + g + h + i + j
+}
+
+fn zero_args_call() -> f64 {
+  return empty_function()
+}
+
+fn negative_numbers() -> f64 {
+  var a = -1
+  var b = -10
+  var c = -100
+  return a + b + c
+}
+
+fn floating_point() -> f64 {
+  var a = 3.14159
+  var b = 2.71828
+  return a + b
+}

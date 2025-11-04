@@ -1,0 +1,35 @@
+fn min(a: f64, b: f64) -> f64 {
+  if (a < b) {
+    return a
+  } else {
+    return b
+  }
+}
+
+fn max(a: f64, b: f64) -> f64 {
+  if (a > b) {
+    return a
+  } else {
+    return b
+  }
+}
+
+fn abs(x: f64) -> f64 {
+  if (x < 0) {
+    return 0 - x
+  } else {
+    return x
+  }
+}
+
+fn clamp(value: f64, low: f64, high: f64) -> f64 {
+  if (value < low) {
+    return low
+  } else {
+    if (value > high) {
+      return high
+    } else {
+      return value
+    }
+  }
+}

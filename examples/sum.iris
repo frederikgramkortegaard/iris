@@ -1,0 +1,17 @@
+fn sum_range(start: f64, end: f64) -> f64 {
+  if (start > end) {
+    return 0
+  } else {
+    return start + sum_range(start + 1, end)
+  }
+}
+
+fn sum_range_iterative(start: f64, end: f64) -> f64 {
+  var total = 0
+  var i = start
+  while (i <= end) {
+    total = total + i
+    i = i + 1
+  }
+  return total
+}

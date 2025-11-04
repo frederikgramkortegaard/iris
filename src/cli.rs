@@ -1,4 +1,5 @@
 use crate::lexer::LexerContext;
+use crate::parser::ParserContext;
 use std::fs;
 
 /// Runs the compiler CLI with the given command-line arguments.
@@ -17,18 +18,21 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| format!("Failed to read file '{}': {}", filename, e))?;
 
     // Lex the input
-    let lexer = LexerContext::new();
-    let tokens = lexer.lex(&input).map_err(|e| {
+    let tokens = LexerContext::lex(&input).map_err(|e| {
         format!(
             "Lexing error at line {}, column {}: {}",
             e.row, e.column, e.message
         )
     })?;
 
-    // Print all tokens
-    for token in tokens.iter() {
-        println!("{:?}", token);
-    }
+    // Parse the tokens
+    let mut parser = ParserContext::new(tokens);
+    let program = parser.parse().map_err(|e| {
+        format!("Parse error: {}", e.message)
+    })?;
+
+    // Print the AST
+    println!("{:#?}", program);
 
     Ok(())
 }

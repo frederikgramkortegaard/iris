@@ -1,0 +1,40 @@
+fn test_literals() -> f64 {
+  return 42
+}
+
+fn test_variables() -> f64 {
+  var x = 10
+  return x
+}
+
+fn test_binary_ops() -> f64 {
+  var a = 5 + 3
+  var b = 10 - 2
+  var c = 4 * 2
+  var d = 16 / 2
+  return a + b + c + d
+}
+
+fn test_comparisons() -> f64 {
+  var a = 5 < 10
+  var b = 10 > 5
+  var c = 5 <= 5
+  var d = 10 >= 10
+  var e = 5 == 5
+  var f = 5 != 10
+  return 1
+}
+
+fn test_unary() -> f64 {
+  var a = -5
+  var b = +10
+  return a + b
+}
+
+fn test_parentheses() -> f64 {
+  return (5 + 3) * 2
+}
+
+fn test_nested_calls() -> f64 {
+  return test_literals() + test_variables()
+}

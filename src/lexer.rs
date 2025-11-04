@@ -17,6 +17,9 @@ pub enum TokenType {
     Var,
 
     // Types
+    F8Type,
+    F16Type,
+    F32Type,
     F64Type,
 
     // Identifiers and literals
@@ -86,16 +89,6 @@ pub struct LexerContext {
 }
 
 impl LexerContext {
-    /// Creates a new empty lexer context.
-    pub fn new() -> Self {
-        LexerContext {
-            tokens: Vec::new(),
-            row: 0,
-            column: 0,
-            cursor: 0,
-            input: String::new(),
-        }
-    }
 
     /// Peeks at a character at the given lookahead offset from the current cursor position.
     /// Returns `None` if the position is beyond the end of the input.
@@ -235,73 +228,78 @@ impl LexerContext {
     ///
     /// # Example
     /// ```ignore
-    /// let lexer = LexerContext::new();
-    /// let tokens = lexer.lex("fn foo(x: f64) -> f64 { return x + 1; }")?;
+    /// let tokens = LexerContext::lex("fn foo(x: f64) -> f64 { return x + 1; }")?;
     /// ```
-    pub fn lex(mut self, input: &str) -> Result<Vec<Token>, LexError> {
-        self.input = input.to_string();
+    pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
+        let mut lexer = LexerContext {
+            tokens: Vec::new(),
+            row: 0,
+            column: 0,
+            cursor: 0,
+            input: input.to_string(),
+        };
 
-        while let Some(c) = self.peek(0) {
+        while let Some(c) = lexer.peek(0) {
             // Whitespace
             if c.is_whitespace() {
-                self.advance();
+                lexer.advance();
                 continue;
             }
 
             // Line Comments
             if c == '#' {
-                while matches!(self.peek(0), Some(c) if c != '\n') {
-                    self.advance();
+                while matches!(lexer.peek(0), Some(c) if c != '\n') {
+                    lexer.advance();
                 }
                 continue;
             }
 
             // Multi-character operators (try first)
-            if self.try_push_multi_char_token(c) {
+            if lexer.try_push_multi_char_token(c) {
                 continue;
             }
 
             // Single character tokens
-            if self.try_push_single_char_token(c) {
+            if lexer.try_push_single_char_token(c) {
                 continue;
             }
 
             // Numbers
             if c.is_ascii_digit() {
-                let start = self.cursor;
-                self.advance();
+                let start = lexer.cursor;
+                lexer.advance();
                 let mut has_dot = false;
 
-                while let Some(next_c) = self.peek(0) {
+                while let Some(next_c) = lexer.peek(0) {
                     if next_c.is_ascii_digit() {
-                        self.advance();
+                        lexer.advance();
                     } else if next_c == '.' && !has_dot {
                         has_dot = true;
-                        self.advance();
+                        lexer.advance();
                     } else {
                         break;
                     }
                 }
 
-                let lexeme = self.input[start..self.cursor].to_string();
-                self.add_token(TokenType::Number, lexeme);
+                let lexeme = lexer.input[start..lexer.cursor].to_string();
+                lexer.add_token(TokenType::Number, lexeme);
                 continue;
             }
 
             // Identifiers and keywords
             if c.is_alphabetic() || c == '_' {
-                let start = self.cursor;
-                self.advance();
+                let start = lexer.cursor;
+                lexer.advance();
 
-                while let Some(next_c) = self.peek(0) {
+                while let Some(next_c) = lexer.peek(0) {
                     if next_c.is_alphanumeric() || next_c == '_' {
-                        self.advance();
+                        lexer.advance();
                     } else {
                         break;
                     }
                 }
 
-                let lexeme = self.input[start..self.cursor].to_string();
+                let lexeme = lexer.input[start..lexer.cursor].to_string();
                 let token_type = match lexeme.as_str() {
                     "fn" => TokenType::Fn,
                     "extern" => TokenType::Extern,
@@ -313,22 +311,25 @@ impl LexerContext {
                     "in" => TokenType::In,
                     "while" => TokenType::While,
                     "return" => TokenType::Return,
+                    "f8" => TokenType::F8Type,
+                    "f16" => TokenType::F16Type,
+                    "f32" => TokenType::F32Type,
                     "f64" => TokenType::F64Type,
                     _ => TokenType::Identifier,
                 };
-                self.add_token(token_type, lexeme);
+                lexer.add_token(token_type, lexeme);
                 continue;
             }
 
             // Unknown character - error
             return Err(LexError {
                 message: format!("Unexpected character '{}'", c),
-                row: self.row + 1,
-                column: self.column + 1,
+                row: lexer.row + 1,
+                column: lexer.column + 1,
             });
         }
 
-        self.add_token(TokenType::Eof, String::new());
-        Ok(self.tokens)
+        lexer.add_token(TokenType::Eof, String::new());
+        Ok(lexer.tokens)
     }
 }

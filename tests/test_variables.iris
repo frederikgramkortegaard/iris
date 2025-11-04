@@ -1,0 +1,60 @@
+fn test_var_declaration() -> f64 {
+  var x = 10
+  return x
+}
+
+fn test_var_with_type() -> f64 {
+  var x: f64 = 10
+  return x
+}
+
+fn test_var_no_init() -> f64 {
+  var x: f64
+  x = 10
+  return x
+}
+
+fn test_reassignment() -> f64 {
+  var x = 5
+  x = 10
+  x = x + 5
+  x = x * 2
+  return x
+}
+
+fn test_multiple_vars() -> f64 {
+  var a = 1
+  var b = 2
+  var c = 3
+  var d = a + b + c
+  return d
+}
+
+fn test_shadowing_in_blocks() -> f64 {
+  var x = 10
+  {
+    var x = 20
+    x = x + 5
+  }
+  return x
+}
+
+fn test_scope() -> f64 {
+  var x = 1
+  if (x > 0) {
+    var y = 10
+    x = x + y
+  }
+  return x
+}
+
+fn test_loop_variable() -> f64 {
+  var sum = 0
+  var i = 0
+  while (i < 10) {
+    var temp = i * 2
+    sum = sum + temp
+    i = i + 1
+  }
+  return sum
+}

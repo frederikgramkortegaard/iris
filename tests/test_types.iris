@@ -1,0 +1,31 @@
+fn test_f8(x: f8) -> f8 {
+  return x
+}
+
+fn test_f16(x: f16) -> f16 {
+  return x
+}
+
+fn test_f32(x: f32) -> f32 {
+  return x
+}
+
+fn test_f64(x: f64) -> f64 {
+  return x
+}
+
+fn test_pointer(x: *f64) -> *f64 {
+  return x
+}
+
+fn test_pointer_pointer(x: **f32) -> **f32 {
+  return x
+}
+
+fn test_mixed_types(a: f8, b: f16, c: f32, d: f64) -> f64 {
+  return d
+}
+
+fn test_pointer_arithmetic(ptr: *f64, offset: f64) -> *f64 {
+  return ptr
+}

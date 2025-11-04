@@ -1,0 +1,35 @@
+fn test_arithmetic_precedence() -> f64 {
+  var a = 2 + 3 * 4
+  var b = 10 - 6 / 2
+  var c = 2 * 3 + 4 * 5
+  return a + b + c
+}
+
+fn test_comparison_precedence() -> f64 {
+  var a = 5 + 3 > 2 * 4
+  var b = 10 - 5 <= 3 + 2
+  return 1
+}
+
+fn test_logical_precedence() -> f64 {
+  var a = 1 && 0 || 1
+  var b = 1 || 0 && 0
+  return 1
+}
+
+fn test_mixed_precedence() -> f64 {
+  var a = 2 + 3 * 4 > 10 && 5 < 10
+  return 1
+}
+
+fn test_parentheses_override() -> f64 {
+  var a = (2 + 3) * 4
+  var b = 10 / (2 + 3)
+  return a + b
+}
+
+fn test_associativity() -> f64 {
+  var a = 100 - 50 - 20
+  var b = 2 + 3 + 4 + 5
+  return a + b
+}

@@ -1,0 +1,74 @@
+fn test_if_statement(x: f64) -> f64 {
+  if (x > 0) {
+    return 1
+  } else {
+    return 0
+  }
+}
+
+fn test_nested_if(x: f64) -> f64 {
+  if (x > 10) {
+    if (x > 20) {
+      return 2
+    } else {
+      return 1
+    }
+  } else {
+    return 0
+  }
+}
+
+fn test_while_loop(n: f64) -> f64 {
+  var i = 0
+  var sum = 0
+  while (i < n) {
+    sum = sum + i
+    i = i + 1
+  }
+  return sum
+}
+
+fn test_nested_while(n: f64) -> f64 {
+  var i = 0
+  var sum = 0
+  while (i < n) {
+    var j = 0
+    while (j < i) {
+      sum = sum + 1
+      j = j + 1
+    }
+    i = i + 1
+  }
+  return sum
+}
+
+fn test_block() -> f64 {
+  var x = 5
+  {
+    var y = 10
+    x = x + y
+  }
+  return x
+}
+
+fn test_assignments() -> f64 {
+  var a = 1
+  a = 2
+  a = a + 3
+  a = a * 2
+  return a
+}
+
+fn test_multiple_returns(x: f64) -> f64 {
+  if (x < 0) {
+    return -1
+  } else {
+    return 1
+  }
+}
+
+fn test_expression_statement() -> f64 {
+  var x = 5
+  x + 10
+  return x
+}

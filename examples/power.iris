@@ -1,0 +1,17 @@
+fn power(base: f64, exponent: f64) -> f64 {
+  if (exponent == 0) {
+    return 1
+  } else {
+    return base * power(base, exponent - 1)
+  }
+}
+
+fn power_iterative(base: f64, exponent: f64) -> f64 {
+  var result = 1
+  var i = 0
+  while (i < exponent) {
+    result = result * base
+    i = i + 1
+  }
+  return result
+}
