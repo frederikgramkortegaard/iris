@@ -1,0 +1,11 @@
+var global_x: f64 = 10
+var global_y: f32 = 5
+
+fn bad_global_type() -> f64 {
+    return global_y
+}
+
+fn reassign_global() -> f64 {
+    global_x = global_y
+    return global_x
+}

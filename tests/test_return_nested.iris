@@ -1,0 +1,13 @@
+fn test_bad_return_nested() -> f64 {
+    if (5 > 0) {
+        return 10
+    }
+    return 0
+}
+
+fn test_bad_return_nested_wrong_type() -> f32 {
+    if (5 > 0) {
+        return 10
+    }
+    return 0
+}

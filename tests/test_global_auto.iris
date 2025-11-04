@@ -1,0 +1,5 @@
+var global_auto = 42
+
+fn use_global_auto() -> f64 {
+    return global_auto
+}

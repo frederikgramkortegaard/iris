@@ -32,6 +32,8 @@ impl PrintPass {
 }
 
 impl Visitor for PrintPass {
+    type Output = ();
+
     fn diagnostics(&self) -> &DiagnosticCollector {
         &self.diagnostics
     }
@@ -40,7 +42,7 @@ impl Visitor for PrintPass {
         &mut self.diagnostics
     }
 
-    fn visit_program(&mut self, program: &Program) {
+    fn visit_program(&mut self, program: &mut Program) -> () {
         self.print(&format!(
             "Program ({} globals, {} functions)",
             program.globals.len(),
@@ -51,21 +53,21 @@ impl Visitor for PrintPass {
         self.dedent();
     }
 
-    fn visit_function(&mut self, function: &Function) {
+    fn visit_function(&mut self, function: &mut Function) -> () {
         self.print(&format!("Function: {}", function.name));
         self.indent();
         self.walk_function(function);
         self.dedent();
     }
 
-    fn visit_variable(&mut self, variable: &Variable) {
+    fn visit_variable(&mut self, variable: &mut Variable) -> () {
         self.print(&format!("Variable: {}", variable.name));
         self.indent();
         self.walk_variable(variable);
         self.dedent();
     }
 
-    fn visit_statement(&mut self, statement: &Statement) {
+    fn visit_statement(&mut self, statement: &mut Statement) -> () {
         match statement {
             Statement::Assignment { left, .. } => {
                 self.print(&format!("Assignment to: {}", left))
@@ -84,7 +86,7 @@ impl Visitor for PrintPass {
         self.dedent();
     }
 
-    fn visit_expression(&mut self, expression: &Expression) {
+    fn visit_expression(&mut self, expression: &mut Expression) -> () {
         match expression {
             Expression::Number(n) => self.print(&format!("Number: {}", n)),
             Expression::BinaryOp { .. } => self.print("BinaryOp"),
@@ -92,7 +94,7 @@ impl Visitor for PrintPass {
             Expression::Call { identifier, args } => {
                 self.print(&format!("Call: {}({} args)", identifier, args.len()))
             }
-            Expression::Variable { identifier } => {
+            Expression::Variable(identifier) => {
                 self.print(&format!("Variable ref: {}", identifier))
             }
         }

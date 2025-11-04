@@ -1,0 +1,9 @@
+var global_x: f64 = 10
+
+fn use_global() -> f64 {
+    return global_x
+}
+
+fn main() -> f64 {
+    return use_global()
+}

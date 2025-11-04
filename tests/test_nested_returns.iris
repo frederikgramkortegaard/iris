@@ -1,0 +1,39 @@
+fn test_return_in_if() -> f64 {
+    if (5 > 0) {
+        return 10
+    }
+    return 0
+}
+
+fn test_return_in_while() -> f64 {
+    var x: f64 = 0
+    while (x < 10) {
+        x = x + 1
+        if (x > 5) {
+            return x
+        }
+    }
+    return 0
+}
+
+fn test_return_in_block() -> f64 {
+    {
+        return 42
+    }
+}
+
+fn test_bad_return_in_if() -> f32 {
+    if (5 > 0) {
+        return 10
+    }
+    return 0
+}
+
+fn test_bad_return_in_while() -> f32 {
+    var x: f64 = 0
+    while (x < 10) {
+        x = x + 1
+        return x
+    }
+    return 0
+}

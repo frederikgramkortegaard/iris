@@ -1,0 +1,52 @@
+fn test_redeclaration() -> f64 {
+    var x: f64
+    var x: f64
+    return 0
+}
+
+fn test_reassignment_valid() -> f64 {
+    var x: f64 = 5
+    x = 10
+    return x
+}
+
+fn test_reassignment_type_mismatch(a: f64, b: f32) -> f64 {
+    var x: f64 = a
+    x = b
+    return x
+}
+
+fn test_auto_inference() -> f64 {
+    var x = 5
+    return x
+}
+
+fn test_declaration_matching() -> f64 {
+    var x: f64 = 5
+    return x
+}
+
+fn test_declaration_mismatch(a: f32) -> f64 {
+    var x: f64 = a
+    return x
+}
+
+fn test_declaration_no_init() -> f64 {
+    var x: f64
+    x = 10
+    return x
+}
+
+fn test_undeclared() -> f64 {
+    y = 5
+    return 0
+}
+
+fn test_nested_scopes() -> f64 {
+    var x: f64 = 5
+    if (x > 0) {
+        var x: f64 = 10
+        return x
+    }
+    return x
+}

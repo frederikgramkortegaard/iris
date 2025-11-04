@@ -1,0 +1,12 @@
+fn void_function() {
+    return
+}
+
+fn void_with_expression_error() {
+    return 5
+}
+
+fn another_void() {
+    var x: f64 = 10
+    return
+}

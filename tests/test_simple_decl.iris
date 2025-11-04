@@ -1,0 +1,5 @@
+fn test() -> f64 {
+    var x: f64
+    x = 10
+    return x
+}

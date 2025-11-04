@@ -1,0 +1,26 @@
+fn test_bare_block_scope() -> f64 {
+    var x: f64 = 5
+    {
+        var x: f64 = 10
+    }
+    return x
+}
+
+fn test_nested_blocks() -> f64 {
+    var x: f64 = 1
+    {
+        var y: f64 = 2
+        {
+            var z: f64 = 3
+        }
+    }
+    return x
+}
+
+fn test_block_variable_isolation() -> f64 {
+    var x: f64 = 5
+    {
+        var y: f64 = 10
+    }
+    return x
+}

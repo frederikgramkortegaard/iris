@@ -1,0 +1,12 @@
+fn test_function() -> f64 {
+    return 42
+}
+
+fn wrong_return_type() -> f64 {
+    var x: f8 = 10
+    return x
+}
+
+fn invalid_return() -> f8 {
+    return 42
+  }

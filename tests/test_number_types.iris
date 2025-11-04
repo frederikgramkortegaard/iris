@@ -1,0 +1,9 @@
+fn test_f32() -> f32 {
+    var x: f32 = 5
+    return x
+}
+
+fn test_f64() -> f64 {
+    var x: f64 = 5
+    return x
+}

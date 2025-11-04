@@ -85,13 +85,9 @@ impl ParserContext {
             let statement = self.parse_statement()?;
             match statement {
                 Statement::Assignment { left, typ, right } => {
-                    // Top-level assignments must have a type (be variable declarations)
-                    let typ = typ.ok_or(ParseError {
-                        message: format!(
-                            "Global variable '{}' must have a type annotation",
-                            left
-                        ),
-                    })?;
+                    // If no type specified, default to Auto for type inference
+                    let typ = typ.unwrap_or(Type::Base(BaseType::Auto));
+
                     globals.push(Variable {
                         name: left,
                         typ,
@@ -170,7 +166,7 @@ impl ParserContext {
             let statement = self.parse_statement()?;
             statements.push(statement);
         }
-        Ok(statements)
+        Ok(Block::new(statements))
     }
 
     fn parse_statement(&mut self) -> Result<Statement, ParseError> {
@@ -201,7 +197,7 @@ impl ParserContext {
                     )?;
 
                     // Parse argument list
-                    let mut args = Vec::new();
+                    let mut args: Vec<Variable> = Vec::new();
                     while let Some(t) = self.peek() {
                         if t.tag == TokenType::RParen {
                             break;
@@ -251,13 +247,12 @@ impl ParserContext {
                         "Expected ')' after arguments".to_string(),
                     )?;
 
-                    // Parse return type
-                    self.consume_assert(
-                        TokenType::Arrow,
-                        "Expected '->' after arguments".to_string(),
-                    )?;
-
-                    let return_type = self.parse_type()?;
+                    // Parse return type (optional, defaults to void)
+                    let return_type = if self.consume_optional(TokenType::Arrow).is_some() {
+                        self.parse_type()?
+                    } else {
+                        Type::Base(BaseType::Void)
+                    };
 
                     // Parse body
                     self.consume_assert(
@@ -288,7 +283,14 @@ impl ParserContext {
                 }
                 TokenType::Return => {
                     self.consume();
-                    let expr = Box::new(self.parse_expression()?);
+                    // Check if there's an expression after return
+                    let expr = match self.peek() {
+                        // If we see a closing brace or EOF, it's a bare return
+                        Some(t) if t.tag == TokenType::RBrace || t.tag == TokenType::Eof => None,
+                        // Otherwise parse the expression
+                        Some(_) => Some(Box::new(self.parse_expression()?)),
+                        None => None,
+                    };
                     Ok(Statement::Return(expr))
                 }
                 TokenType::While => {
@@ -388,7 +390,10 @@ impl ParserContext {
                             self.consume(); // consume ':'
                             Some(self.parse_type()?)
                         }
-                        _ => None,
+                        _ => {
+                            // No explicit type, default to Auto for type inference
+                            Some(Type::Base(BaseType::Auto))
+                        }
                     };
 
                     let right = match self.peek() {
@@ -480,9 +485,7 @@ impl ParserContext {
                     }
 
                     // Just a variable reference
-                    Ok(Expression::Variable {
-                        identifier: identifier.lexeme,
-                    })
+                    Ok(Expression::Variable(identifier.lexeme))
                 }
 
                 _ => Err(ParseError {

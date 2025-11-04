@@ -1,0 +1,7 @@
+fn test_param_default(x: f64 = 5) -> f64 {
+    return x
+}
+
+fn test_param_no_default(x: f64) -> f64 {
+    return x
+}

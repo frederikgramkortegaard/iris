@@ -1,9 +1,24 @@
 use crate::lexer::Token;
-use crate::types::{Variable, Function, Type};
+use crate::types::{Function, Scope, Type, Variable};
+use std::cell::RefCell;
+use std::rc::Rc;
 
-pub type Block = Vec<Statement>;
+#[derive(Debug, Clone)]
+pub struct Block {
+    pub statements: Vec<Statement>,
+    pub scope: Option<Rc<RefCell<Scope>>>,
+}
 
-#[derive(Debug)]
+impl Block {
+    pub fn new(statements: Vec<Statement>) -> Self {
+        Block {
+            statements,
+            scope: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Expression {
     Number(f64),
     BinaryOp {
@@ -19,12 +34,10 @@ pub enum Expression {
         identifier: String, //@TODO : In the future this should be an expression to allow for higher-order functions.
         args: Vec<Expression>,
     },
-    Variable {
-        identifier: String,
-    },
+    Variable(String)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Assignment {
         left: String, //@TODO : In the future this should be an expression to allow for assignment into e.g. array indexes
@@ -52,7 +65,7 @@ pub enum Statement {
 
     Block(Block),
 
-    Return(Box<Expression>),
+    Return(Option<Box<Expression>>),
 
     Expression(Box<Expression>),
 }

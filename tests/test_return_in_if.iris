@@ -1,0 +1,13 @@
+fn test_return_in_if(x: f64) -> f64 {
+    if (x > 0) {
+        return x
+    }
+    return 0
+}
+
+fn test_bad_return_in_if(x: f32) -> f64 {
+    if (x > 0) {
+        return x
+    }
+    return 0
+}

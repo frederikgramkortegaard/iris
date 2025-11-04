@@ -1,8 +1,9 @@
 use crate::lexer::LexerContext;
 use crate::parser::ParserContext;
-use crate::passes::PassManager;
 use crate::passes::counting::CountingPass;
 use crate::passes::print::PrintPass;
+use crate::passes::typechecking::TypecheckingPass;
+use crate::visitor::Visitor;
 use std::fs;
 
 /// Runs the compiler CLI with the given command-line arguments.
@@ -30,19 +31,53 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     // Parse the tokens
     let mut parser = ParserContext::new(tokens);
-    let program = parser.parse().map_err(|e| {
+    let mut program = parser.parse().map_err(|e| {
         format!("Parse error: {}", e.message)
     })?;
 
-    // Run passes
-    let mut pass_manager = PassManager::new();
-    pass_manager.add_pass(Box::new(CountingPass::new()));
-    pass_manager.add_pass(Box::new(PrintPass::new()));
+    // Run counting pass
+    let mut counting_pass = CountingPass::new();
+    counting_pass.visit_program(&mut program);
+    print_diagnostics(&counting_pass);
+    if counting_pass.diagnostics().has_errors() {
+        return Err("Compilation failed due to errors".into());
+    }
 
-    pass_manager.run(&program).map_err(|_| {
-        "Compilation failed due to errors"
-    })?;
+    // Run print pass
+    let mut print_pass = PrintPass::new();
+    print_pass.visit_program(&mut program);
+    print_diagnostics(&print_pass);
+    if print_pass.diagnostics().has_errors() {
+        return Err("Compilation failed due to errors".into());
+    }
 
+    // Run typechecking pass
+    let mut typechecking_pass = TypecheckingPass::new();
+    typechecking_pass.visit_program(&mut program);
+    print_diagnostics(&typechecking_pass);
+    if typechecking_pass.diagnostics().has_errors() {
+        return Err("Compilation failed due to errors".into());
+    }
 
     Ok(())
+}
+
+/// Helper function to print diagnostics from a visitor
+fn print_diagnostics<V: Visitor>(visitor: &V) {
+    let diagnostics = visitor.diagnostics();
+
+    // Print errors
+    for error in &diagnostics.errors {
+        eprintln!("Error: {}", error);
+    }
+
+    // Print warnings
+    for warning in &diagnostics.warnings {
+        eprintln!("Warning: {}", warning);
+    }
+
+    // Print info
+    for info in &diagnostics.info {
+        println!("Info: {}", info);
+    }
 }
