@@ -125,26 +125,26 @@ pub trait Visitor {
 
     fn walk_statement(&mut self, statement: &mut Statement) -> Self::Output {
         match statement {
-            Statement::Assignment { left: _, typ, right } => {
+            Statement::Assignment { typ, right, .. } => {
                 self.visit_assignment(typ, right)
             }
-            Statement::FunctionDefinition { name: _, args, return_type, body } => {
+            Statement::FunctionDefinition { args, return_type, body, .. } => {
                 self.visit_function_definition(args, return_type, body)
             }
-            Statement::If { condition, then, els } => {
+            Statement::If { condition, then, els, .. } => {
                 self.visit_if(condition, then, els)
             }
-            Statement::While { condition, body } => {
+            Statement::While { condition, body, .. } => {
                 self.visit_while(condition, body)
             }
-            Statement::Block(block) => {
+            Statement::Block { block, .. } => {
                 self.visit_block(block)
             }
-            Statement::Return(expr) => {
-                self.visit_return(expr)
+            Statement::Return { expression, .. } => {
+                self.visit_return(expression)
             }
-            Statement::Expression(expr) => {
-                self.visit_expression_statement(expr)
+            Statement::Expression { expression, .. } => {
+                self.visit_expression_statement(expression)
             }
         }
     }
@@ -202,22 +202,22 @@ pub trait Visitor {
 
     fn walk_expression(&mut self, expression: &mut Expression) -> Self::Output {
         match expression {
-            Expression::Number(n) => {
-                self.visit_number(*n)
+            Expression::Number { value, .. } => {
+                self.visit_number(*value)
             }
-            Expression::Boolean(b) => {
-                self.visit_boolean(*b)
+            Expression::Boolean { value, .. } => {
+                self.visit_boolean(*value)
             }
-            Expression::BinaryOp { left, op: _, right } => {
+            Expression::BinaryOp { left, right, .. } => {
                 self.visit_binary_op(left, right)
             }
-            Expression::UnaryOp { left, op: _ } => {
+            Expression::UnaryOp { left, .. } => {
                 self.visit_unary_op(left)
             }
-            Expression::Call { identifier: _, args } => {
+            Expression::Call { args, .. } => {
                 self.visit_call(args)
             }
-            Expression::Variable(_) => {
+            Expression::Variable { .. } => {
                 self.visit_variable_expr()
             }
         }

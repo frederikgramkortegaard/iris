@@ -1,4 +1,4 @@
-use crate::lexer::Token;
+use crate::lexer::{Token, Span};
 use crate::types::{Function, Scope, Type, Variable};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -7,35 +7,49 @@ use std::rc::Rc;
 pub struct Block {
     pub statements: Vec<Statement>,
     pub scope: Option<Rc<RefCell<Scope>>>,
+    pub span: Span,
 }
 
 impl Block {
-    pub fn new(statements: Vec<Statement>) -> Self {
+    pub fn new(statements: Vec<Statement>, span: Span) -> Self {
         Block {
             statements,
             scope: None,
+            span,
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum Expression {
-    Number(f64),
-    Boolean(bool),
+    Number {
+        value: f64,
+        span: Span,
+    },
+    Boolean {
+        value: bool,
+        span: Span,
+    },
     BinaryOp {
         left: Box<Expression>,
         op: Token,
         right: Box<Expression>,
+        span: Span,
     },
     UnaryOp {
         left: Box<Expression>,
         op: Token,
+        span: Span,
     },
     Call {
         identifier: String, //@TODO : In the future this should be an expression to allow for higher-order functions.
         args: Vec<Expression>,
+        span: Span,
     },
-    Variable(String)
+    Variable {
+        name: String,
+        span: Span,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +58,7 @@ pub enum Statement {
         left: String, //@TODO : In the future this should be an expression to allow for assignment into e.g. array indexes
         typ: Option<Type>,
         right: Option<Box<Expression>>,
+        span: Span,
     },
 
     FunctionDefinition {
@@ -51,24 +66,36 @@ pub enum Statement {
         args: Vec<Variable>,
         return_type: Type,
         body: Block,
+        span: Span,
     },
 
     If {
         condition: Box<Expression>,
         then: Block,
         els: Option<Block>,
+        span: Span,
     },
 
     While {
         condition: Box<Expression>,
         body: Block,
+        span: Span,
     },
 
-    Block(Block),
+    Block {
+        block: Block,
+        span: Span,
+    },
 
-    Return(Option<Box<Expression>>),
+    Return {
+        expression: Option<Box<Expression>>,
+        span: Span,
+    },
 
-    Expression(Box<Expression>),
+    Expression {
+        expression: Box<Expression>,
+        span: Span,
+    },
 }
 
 #[derive(Debug)]

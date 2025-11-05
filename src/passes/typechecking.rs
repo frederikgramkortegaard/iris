@@ -163,10 +163,10 @@ impl Visitor for TypecheckingPass {
 
     fn visit_statement(&mut self, statement: &mut Statement) -> Self::Output {
         match statement {
-            Statement::Expression(expr) => {
-                self.visit_expression(expr);
+            Statement::Expression { expression, .. } => {
+                self.visit_expression(expression);
             }
-            Statement::Return(maybe_expr) => {
+            Statement::Return { expression: maybe_expr, .. } => {
                 let expr_type = match maybe_expr {
                     Some(expr) => self.visit_expression(expr)?,
                     None => Type::Base(BaseType::Void),
@@ -183,7 +183,7 @@ impl Visitor for TypecheckingPass {
                     ));
                 }
             }
-            Statement::Block(b) => {
+            Statement::Block { block: b, .. } => {
                 // Create and push scope for bare block
                 let block_scope = Rc::new(RefCell::new(Scope::new()));
                 b.scope = Some(Rc::clone(&block_scope));
@@ -191,7 +191,7 @@ impl Visitor for TypecheckingPass {
                 self.visit_block(b);
                 self.scope_stack.pop();
             }
-            Statement::Assignment { left, typ, right } => {
+            Statement::Assignment { left, typ, right, .. } => {
                 match typ.as_ref() {
                     // Declaration: check current scope only for redeclaration
                     Some(t) => {
@@ -276,6 +276,7 @@ impl Visitor for TypecheckingPass {
                 condition,
                 then,
                 els,
+                ..
             } => {
                 // Check that condition is bool
                 if let Some(cond_type) = self.visit_expression(condition) {
@@ -301,7 +302,7 @@ impl Visitor for TypecheckingPass {
                     self.scope_stack.pop();
                 }
             }
-            Statement::While { condition, body } => {
+            Statement::While { condition, body, .. } => {
                 // Check that condition is bool
                 if let Some(cond_type) = self.visit_expression(condition) {
                     if !matches!(cond_type, Type::Base(BaseType::Bool)) {
@@ -329,7 +330,7 @@ impl Visitor for TypecheckingPass {
 
     fn visit_expression(&mut self, expression: &mut Expression) -> Self::Output {
         match expression {
-            Expression::Variable(identifier) => {
+            Expression::Variable { name: identifier, .. } => {
                 if let Some(var) = self.find_variable(identifier) {
                     Some(var.typ)
                 } else {
@@ -338,9 +339,9 @@ impl Visitor for TypecheckingPass {
                     None
                 }
             }
-            Expression::Number(_) => Some(Type::Base(BaseType::F64)),
-            Expression::Boolean(_) => Some(Type::Base(BaseType::Bool)),
-            Expression::UnaryOp { left, op } => {
+            Expression::Number { .. } => Some(Type::Base(BaseType::F64)),
+            Expression::Boolean { .. } => Some(Type::Base(BaseType::Bool)),
+            Expression::UnaryOp { left, op, .. } => {
                 let operand_type = self.visit_expression(left)?;
                 match operand_type.unary_op_result(&op.tag) {
                     Some(result_type) => Some(result_type),
@@ -353,7 +354,7 @@ impl Visitor for TypecheckingPass {
                     }
                 }
             }
-            Expression::BinaryOp { left, op, right } => {
+            Expression::BinaryOp { left, op, right, .. } => {
                 let left_type = self.visit_expression(left)?;
                 let right_type = self.visit_expression(right)?;
 
@@ -368,7 +369,7 @@ impl Visitor for TypecheckingPass {
                     }
                 }
             }
-            Expression::Call { identifier, args } => {
+            Expression::Call { identifier, args, .. } => {
                 if let Some(func) = &mut self.find_function(identifier) {
                     // Check argument count
                     if func.args.len() != args.len() {

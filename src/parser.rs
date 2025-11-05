@@ -1,6 +1,20 @@
 use crate::ast::{Block, Expression, Program, Statement};
-use crate::lexer::{Token, TokenType};
+use crate::lexer::{Span, Token, TokenType};
 use crate::types::{BaseType, Function, Type, Variable};
+
+impl Expression {
+    /// Get the span of this expression
+    pub fn span(&self) -> Span {
+        match self {
+            Expression::Number { span, .. } => *span,
+            Expression::Boolean { span, .. } => *span,
+            Expression::BinaryOp { span, .. } => *span,
+            Expression::UnaryOp { span, .. } => *span,
+            Expression::Call { span, .. } => *span,
+            Expression::Variable { span, .. } => *span,
+        }
+    }
+}
 
 /// Error type returned when parsing fails.
 #[derive(Debug, Clone)]
@@ -84,7 +98,7 @@ impl ParserContext {
         while self.peek().is_some() && self.peek().unwrap().tag != TokenType::Eof {
             let statement = self.parse_statement()?;
             match statement {
-                Statement::Assignment { left, typ, right } => {
+                Statement::Assignment { left, typ, right, .. } => {
                     // If no type specified, default to Auto for type inference
                     let typ = typ.unwrap_or(Type::Base(BaseType::Auto));
 
@@ -99,6 +113,7 @@ impl ParserContext {
                     args,
                     return_type,
                     body,
+                    ..
                 } => {
                     functions.push(Function {
                         name,
@@ -155,8 +170,10 @@ impl ParserContext {
         }
     }
 
-    fn parse_block(&mut self) -> Result<Block, ParseError> {
+    fn parse_block(&mut self, start_token: &Token) -> Result<Block, ParseError> {
         let mut statements = Vec::new();
+        let start_span = Span::from_token(start_token);
+
         while self.peek().is_some() {
             // Stop when we hit a closing brace
             if let Some(token) = self.peek() {
@@ -167,7 +184,24 @@ impl ParserContext {
             let statement = self.parse_statement()?;
             statements.push(statement);
         }
-        Ok(Block::new(statements))
+
+        // Compute the span: from start_token to the last statement (or just start_token if empty)
+        let span = if let Some(last_stmt) = statements.last() {
+            let end_span = match last_stmt {
+                Statement::Assignment { span, .. } => *span,
+                Statement::FunctionDefinition { span, .. } => *span,
+                Statement::If { span, .. } => *span,
+                Statement::While { span, .. } => *span,
+                Statement::Block { span, .. } => *span,
+                Statement::Return { span, .. } => *span,
+                Statement::Expression { span, .. } => *span,
+            };
+            Span::merge(&start_span, &end_span)
+        } else {
+            start_span
+        };
+
+        Ok(Block::new(statements, span))
     }
 
     fn parse_statement(&mut self) -> Result<Statement, ParseError> {
@@ -185,7 +219,7 @@ impl ParserContext {
 
                 // Function definition
                 TokenType::Fn => {
-                    self.consume(); // consume 'fn'
+                    let fn_token = self.consume().unwrap(); // consume 'fn'
 
                     let name = self.consume_assert(
                         TokenType::Identifier,
@@ -256,34 +290,42 @@ impl ParserContext {
                     };
 
                     // Parse body
-                    self.consume_assert(
+                    let lbrace = self.consume_assert(
                         TokenType::LBrace,
                         "Expected '{' before function body".to_string(),
                     )?;
-                    let body = self.parse_block()?;
-                    self.consume_assert(
+                    let body = self.parse_block(&lbrace)?;
+                    let rbrace = self.consume_assert(
                         TokenType::RBrace,
                         "Expected '}' after function body".to_string(),
                     )?;
+
+                    let span = Span::merge(&Span::from_token(&fn_token), &Span::from_token(&rbrace));
 
                     Ok(Statement::FunctionDefinition {
                         name: name.lexeme,
                         args,
                         return_type,
                         body,
+                        span,
                     })
                 }
 
                 TokenType::LBrace => {
-                    self.consume();
+                    let lbrace = self.consume().unwrap();
 
-                    let body = self.parse_block()?;
-                    self.consume_assert(TokenType::RBrace, "Missing } after body".to_string())?;
+                    let body = self.parse_block(&lbrace)?;
+                    let rbrace = self.consume_assert(TokenType::RBrace, "Missing } after body".to_string())?;
 
-                    Ok(Statement::Block(body))
+                    let span = Span::merge(&Span::from_token(&lbrace), &Span::from_token(&rbrace));
+
+                    Ok(Statement::Block {
+                        block: body,
+                        span,
+                    })
                 }
                 TokenType::Return => {
-                    self.consume();
+                    let return_token = self.consume().unwrap();
                     // Check if there's an expression after return
                     let expr = match self.peek() {
                         // If we see a closing brace or EOF, it's a bare return
@@ -292,52 +334,64 @@ impl ParserContext {
                         Some(_) => Some(Box::new(self.parse_expression()?)),
                         None => None,
                     };
-                    Ok(Statement::Return(expr))
+
+                    let span = if let Some(e) = &expr {
+                        Span::merge(&Span::from_token(&return_token), &e.span())
+                    } else {
+                        Span::from_token(&return_token)
+                    };
+
+                    Ok(Statement::Return {
+                        expression: expr,
+                        span,
+                    })
                 }
                 TokenType::While => {
-                    self.consume();
+                    let while_token = self.consume().unwrap();
                     self.consume_optional(TokenType::LParen);
                     let condition = Box::new(self.parse_expression()?);
                     self.consume_optional(TokenType::RParen);
 
-                    self.consume_assert(
+                    let lbrace = self.consume_assert(
                         TokenType::LBrace,
                         "Missing { after while conditional".to_string(),
                     )?;
 
-                    let body = self.parse_block()?;
+                    let body = self.parse_block(&lbrace)?;
 
-                    self.consume_assert(
+                    let rbrace = self.consume_assert(
                         TokenType::RBrace,
                         "Missing } after while body".to_string(),
                     )?;
 
-                    Ok(Statement::While { condition, body })
+                    let span = Span::merge(&Span::from_token(&while_token), &Span::from_token(&rbrace));
+
+                    Ok(Statement::While { condition, body, span })
                 }
                 TokenType::If => {
-                    self.consume();
+                    let if_token = self.consume().unwrap();
                     self.consume_optional(TokenType::LParen);
                     let condition = Box::new(self.parse_expression()?);
                     self.consume_optional(TokenType::RParen);
 
-                    self.consume_assert(
+                    let lbrace = self.consume_assert(
                         TokenType::LBrace,
                         "Missing { after if conditional".to_string(),
                     )?;
 
-                    let then = self.parse_block()?;
+                    let then = self.parse_block(&lbrace)?;
 
-                    self.consume_assert(TokenType::RBrace, "Missing } after if body".to_string())?;
+                    let mut rbrace = self.consume_assert(TokenType::RBrace, "Missing } after if body".to_string())?;
 
                     let els = match self.peek() {
                         Some(token) if token.tag == TokenType::Else => {
                             self.consume(); // consume 'else'
-                            self.consume_assert(
+                            let else_lbrace = self.consume_assert(
                                 TokenType::LBrace,
                                 "Expected '{' after 'else'".to_string(),
                             )?;
-                            let block = self.parse_block()?;
-                            self.consume_assert(
+                            let block = self.parse_block(&else_lbrace)?;
+                            rbrace = self.consume_assert(
                                 TokenType::RBrace,
                                 "Expected '}' after else body".to_string(),
                             )?;
@@ -346,10 +400,13 @@ impl ParserContext {
                         _ => None,
                     };
 
+                    let span = Span::merge(&Span::from_token(&if_token), &Span::from_token(&rbrace));
+
                     Ok(Statement::If {
                         condition,
                         then,
                         els,
+                        span,
                     })
                 }
 
@@ -360,16 +417,28 @@ impl ParserContext {
                             let identifier = self.consume().unwrap();
                             self.consume(); // consume '='
                             let right = self.parse_expression().ok().map(Box::new);
+
+                            let span = if let Some(r) = &right {
+                                Span::merge(&Span::from_token(&identifier), &r.span())
+                            } else {
+                                Span::from_token(&identifier)
+                            };
+
                             Ok(Statement::Assignment {
                                 left: identifier.lexeme,
                                 typ: None,
                                 right,
+                                span,
                             })
                         }
                         // Expression Statement
                         Some(_) => {
                             let expr = self.parse_expression()?;
-                            Ok(Statement::Expression(Box::new(expr)))
+                            let span = expr.span();
+                            Ok(Statement::Expression {
+                                expression: Box::new(expr),
+                                span,
+                            })
                         }
                         None => Err(ParseError {
                             message: "Unexpected end of input".to_string(),
@@ -379,7 +448,7 @@ impl ParserContext {
 
                 // Variable Declarations and Assignments
                 TokenType::Var => {
-                    self.consume();
+                    let var_token = self.consume().unwrap();
                     let identifier = self.consume_assert(
                         TokenType::Identifier,
                         "Expected an identifier after 'var'".to_string(),
@@ -405,10 +474,17 @@ impl ParserContext {
                         _ => None,
                     };
 
+                    let span = if let Some(r) = &right {
+                        Span::merge(&Span::from_token(&var_token), &r.span())
+                    } else {
+                        Span::merge(&Span::from_token(&var_token), &Span::from_token(&identifier))
+                    };
+
                     Ok(Statement::Assignment {
                         left: identifier.lexeme,
                         typ,
                         right,
+                        span,
                     })
                 }
 
@@ -443,17 +519,26 @@ impl ParserContext {
                     let value = token.lexeme.parse::<f64>().map_err(|_| ParseError {
                         message: format!("Failed to parse number: {}", token.lexeme),
                     })?;
-                    Ok(Expression::Number(value))
+                    Ok(Expression::Number {
+                        value,
+                        span: Span::from_token(&token),
+                    })
                 }
 
                 // Boolean literals
                 TokenType::True => {
-                    self.consume();
-                    Ok(Expression::Boolean(true))
+                    let token = self.consume().unwrap();
+                    Ok(Expression::Boolean {
+                        value: true,
+                        span: Span::from_token(&token),
+                    })
                 }
                 TokenType::False => {
-                    self.consume();
-                    Ok(Expression::Boolean(false))
+                    let token = self.consume().unwrap();
+                    Ok(Expression::Boolean {
+                        value: false,
+                        span: Span::from_token(&token),
+                    })
                 }
 
                 // Identifier or function call
@@ -483,20 +568,27 @@ impl ParserContext {
                                 }
                             }
 
-                            self.consume_assert(
+                            let rparen = self.consume_assert(
                                 TokenType::RParen,
                                 "Expected ')' after arguments".to_string(),
                             )?;
 
+                            let span = Span::merge(&Span::from_token(&identifier), &Span::from_token(&rparen));
+
                             return Ok(Expression::Call {
                                 identifier: identifier.lexeme,
                                 args,
+                                span,
                             });
                         }
                     }
 
                     // Just a variable reference
-                    Ok(Expression::Variable(identifier.lexeme))
+                    let span = Span::from_token(&identifier);
+                    Ok(Expression::Variable {
+                        name: identifier.lexeme,
+                        span,
+                    })
                 }
 
                 _ => Err(ParseError {
@@ -516,9 +608,11 @@ impl ParserContext {
                 TokenType::Plus | TokenType::Minus | TokenType::Bang => {
                     let op = self.consume().unwrap();
                     let expr = self.parse_unary()?;
+                    let span = Span::merge(&Span::from_token(&op), &expr.span());
                     Ok(Expression::UnaryOp {
                         op,
                         left: Box::new(expr),
+                        span,
                     })
                 }
                 _ => self.parse_primary(),
@@ -564,10 +658,12 @@ impl ParserContext {
             }
 
             // Merge LHS and RHS
+            let span = Span::merge(&lhs.span(), &rhs.span());
             lhs = Box::new(Expression::BinaryOp {
                 left: lhs,
                 op,
                 right: rhs,
+                span,
             });
         }
     }
