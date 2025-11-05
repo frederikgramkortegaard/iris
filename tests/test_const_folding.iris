@@ -1,0 +1,30 @@
+# Test constant folding for binary operations
+fn test_binary() -> f64 {
+    var a: f64 = 2 + 3           # Should fold to 5
+    var b: f64 = 10 - 4          # Should fold to 6
+    var c: f64 = 3 * 4           # Should fold to 12
+    var d: f64 = 20 / 5          # Should fold to 4
+    var e: f64 = 17 % 5          # Should fold to 2
+
+    # Nested operations
+    var f: f64 = 2 + 3 * 4       # Should fold 3*4 to 12, then 2+12 to 14
+    var g: f64 = (2 + 3) * 4     # Should fold 2+3 to 5, then 5*4 to 20
+
+    return a + b + c + d + e + f + g
+}
+
+# Test constant folding for unary operations
+fn test_unary() -> f64 {
+    var a: f64 = -5              # Should fold to -5
+    var b: f64 = +10             # Should fold to 10
+    var c: f64 = -(3 + 2)        # Should fold 3+2 to 5, then -5
+    var d: f64 = -(-5)           # Should fold inner -5, then outer to 5
+
+    return a + b + c + d
+}
+
+# Test mixed operations
+fn test_mixed() -> f64 {
+    var a: f64 = -(2 + 3) * 4 - 10 / 2  # Should fold to -25
+    return a
+}
