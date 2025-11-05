@@ -1,0 +1,18 @@
+# Test division by zero warning
+fn test_divide_by_zero() -> f64 {
+    var a = 10 / 0
+    return a
+}
+
+# Test modulo by zero warning
+fn test_mod_by_zero() -> f64 {
+    var b = 17 % 0
+    return b
+}
+
+# Test both in one function
+fn test_both() -> f64 {
+    var c = 5 / 0
+    var d = 20 % 0
+    return c + d
+}

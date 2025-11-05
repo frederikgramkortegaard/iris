@@ -84,11 +84,15 @@ impl Type {
     pub fn unary_op_result(&self, op: &TokenType) -> Option<Type> {
         match op {
             TokenType::Bang => {
-                // ! (not) always returns Bool
-                Some(Type::Base(BaseType::Bool))
+                // ! (not) only works on Bool operands
+                if matches!(self, Type::Base(BaseType::Bool)) {
+                    Some(Type::Base(BaseType::Bool))
+                } else {
+                    None // Error: can't use ! on non-bool types
+                }
             }
             TokenType::Minus | TokenType::Plus => {
-                // - and + return the same type as the operand
+                // - and + return the same type as the operand (only valid for numeric types)
                 Some(self.clone())
             }
             _ => None,

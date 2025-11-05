@@ -342,7 +342,16 @@ impl Visitor for TypecheckingPass {
             Expression::Boolean(_) => Some(Type::Base(BaseType::Bool)),
             Expression::UnaryOp { left, op } => {
                 let operand_type = self.visit_expression(left)?;
-                operand_type.unary_op_result(&op.tag)
+                match operand_type.unary_op_result(&op.tag) {
+                    Some(result_type) => Some(result_type),
+                    None => {
+                        self.diagnostics_mut().error(format!(
+                            "Invalid unary operation: operator '{}' cannot be applied to type {:?}",
+                            op.lexeme, operand_type
+                        ));
+                        None
+                    }
+                }
             }
             Expression::BinaryOp { left, op, right } => {
                 let left_type = self.visit_expression(left)?;

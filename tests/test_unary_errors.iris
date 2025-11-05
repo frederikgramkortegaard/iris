@@ -1,0 +1,5 @@
+fn test_bang_on_number() -> f64 {
+    var x: f64 = 5
+    var y = !x
+    return 0
+}

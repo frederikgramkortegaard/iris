@@ -1,0 +1,29 @@
+# Test boolean constant folding
+fn test_bool_ops() -> f64 {
+    var a = true && false
+    var b = true || false
+    var c = true == false
+    var d = true != false
+    var e = !true
+    var f = !false
+    return 0
+}
+
+# Test comparison constant folding
+fn test_comparisons() -> f64 {
+    var a = 5 < 10
+    var b = 10 > 5
+    var c = 5 <= 5
+    var d = 10 >= 5
+    var e = 5 == 5
+    var f = 5 != 10
+    return 0
+}
+
+# Test nested folding
+fn test_nested() -> f64 {
+    var a = (2 + 3) < (4 * 2)
+    var b = !(5 == 10)
+    var c = (true && false) || (true && true)
+    return 0
+}

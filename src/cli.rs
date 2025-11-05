@@ -1,7 +1,7 @@
 use crate::lexer::LexerContext;
 use crate::parser::ParserContext;
 use crate::passes::counting::CountingPass;
-use crate::passes::ast_const_folding::ASTConstFoldingPass;
+use crate::passes::ast_simplification::ASTSimplificationPass;
 use crate::passes::print::PrintPass;
 use crate::passes::typechecking::TypecheckingPass;
 use crate::visitor::Visitor;
@@ -60,12 +60,12 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Err("Compilation failed due to errors".into());
     }
     //
-    // Run AST-level constant folding pass
-    let mut ast_const_folding_pass = ASTConstFoldingPass::new();
+    // Run AST simplification pass (constant folding, boolean folding, etc.)
+    let mut ast_simplification_pass = ASTSimplificationPass::new();
 
-    ast_const_folding_pass.visit_program(&mut program);
-    print_diagnostics(&ast_const_folding_pass);
-    if ast_const_folding_pass.diagnostics().has_errors() {
+    ast_simplification_pass.visit_program(&mut program);
+    print_diagnostics(&ast_simplification_pass);
+    if ast_simplification_pass.diagnostics().has_errors() {
         return Err("Compilation failed due to errors".into());
     }
 
