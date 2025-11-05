@@ -89,6 +89,7 @@ impl Visitor for PrintPass {
     fn visit_expression(&mut self, expression: &mut Expression) -> () {
         match expression {
             Expression::Number(n) => self.print(&format!("Number: {}", n)),
+            Expression::Boolean(b) => self.print(&format!("Boolean: {}", b)),
             Expression::BinaryOp { .. } => self.print("BinaryOp"),
             Expression::UnaryOp { .. } => self.print("UnaryOp"),
             Expression::Call { identifier, args } => {

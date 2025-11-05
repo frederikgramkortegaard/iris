@@ -15,12 +15,15 @@ pub enum TokenType {
     While,
     Return,
     Var,
+    True,
+    False,
 
     // Types
     F8Type,
     F16Type,
     F32Type,
     F64Type,
+    BoolType,
 
     // Identifiers and literals
     Identifier,
@@ -311,10 +314,13 @@ impl LexerContext {
                     "in" => TokenType::In,
                     "while" => TokenType::While,
                     "return" => TokenType::Return,
+                    "true" => TokenType::True,
+                    "false" => TokenType::False,
                     "f8" => TokenType::F8Type,
                     "f16" => TokenType::F16Type,
                     "f32" => TokenType::F32Type,
                     "f64" => TokenType::F64Type,
+                    "bool" => TokenType::BoolType,
                     _ => TokenType::Identifier,
                 };
                 lexer.add_token(token_type, lexeme);

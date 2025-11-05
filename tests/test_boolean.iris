@@ -1,0 +1,7 @@
+fn test_boolean_literals() -> f64 {
+    var a = true
+    var b = false
+    var c: bool = true
+    var d: bool = false
+    return 0
+}

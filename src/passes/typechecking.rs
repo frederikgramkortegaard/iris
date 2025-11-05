@@ -339,6 +339,7 @@ impl Visitor for TypecheckingPass {
                 }
             }
             Expression::Number(_) => Some(Type::Base(BaseType::F64)),
+            Expression::Boolean(_) => Some(Type::Base(BaseType::Bool)),
             Expression::UnaryOp { left, op } => {
                 let operand_type = self.visit_expression(left)?;
                 operand_type.unary_op_result(&op.tag)

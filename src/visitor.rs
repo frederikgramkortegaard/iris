@@ -205,6 +205,9 @@ pub trait Visitor {
             Expression::Number(n) => {
                 self.visit_number(*n)
             }
+            Expression::Boolean(b) => {
+                self.visit_boolean(*b)
+            }
             Expression::BinaryOp { left, op: _, right } => {
                 self.visit_binary_op(left, right)
             }
@@ -222,6 +225,11 @@ pub trait Visitor {
 
     fn visit_number(&mut self, _n: f64) -> Self::Output {
         // Default: do nothing, numbers are leaves
+        Self::Output::default()
+    }
+
+    fn visit_boolean(&mut self, _b: bool) -> Self::Output {
+        // Default: do nothing, booleans are leaves
         Self::Output::default()
     }
 

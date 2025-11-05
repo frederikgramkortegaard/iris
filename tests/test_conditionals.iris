@@ -1,0 +1,44 @@
+# Test if statements with boolean literals
+fn test_if_bool_literals() -> f64 {
+    if true {
+        var x: f64 = 1
+    }
+
+    if false {
+        var y: f64 = 2
+    }
+
+    return 0
+}
+
+# Test if with boolean variables
+fn test_if_bool_vars() -> f64 {
+    var condition: bool = true
+
+    if condition {
+        return 1
+    } else {
+        return 0
+    }
+}
+
+# Test while with boolean literal
+fn test_while_bool() -> f64 {
+    var x: f64 = 0
+    while false {
+        x = x + 1
+    }
+    return x
+}
+
+# Test comparison (should typecheck but not fold yet)
+fn test_comparison() -> f64 {
+    var a: f64 = 5
+    var b: f64 = 10
+
+    if a < b {
+        return 1
+    } else {
+        return 0
+    }
+}

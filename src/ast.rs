@@ -21,6 +21,7 @@ impl Block {
 #[derive(Debug, Clone)]
 pub enum Expression {
     Number(f64),
+    Boolean(bool),
     BinaryOp {
         left: Box<Expression>,
         op: Token,

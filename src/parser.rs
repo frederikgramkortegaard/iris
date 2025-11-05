@@ -139,6 +139,7 @@ impl ParserContext {
                     TokenType::F16Type => BaseType::F16,
                     TokenType::F32Type => BaseType::F32,
                     TokenType::F64Type => BaseType::F64,
+                    TokenType::BoolType => BaseType::Bool,
                     _ => {
                         return Err(ParseError {
                             message: format!("Expected type, got {:?}", token.tag),
@@ -443,6 +444,16 @@ impl ParserContext {
                         message: format!("Failed to parse number: {}", token.lexeme),
                     })?;
                     Ok(Expression::Number(value))
+                }
+
+                // Boolean literals
+                TokenType::True => {
+                    self.consume();
+                    Ok(Expression::Boolean(true))
+                }
+                TokenType::False => {
+                    self.consume();
+                    Ok(Expression::Boolean(false))
                 }
 
                 // Identifier or function call
