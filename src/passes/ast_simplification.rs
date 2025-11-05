@@ -103,38 +103,198 @@ impl ASTSimplificationPass {
             _ => None,
         }
     }
-}
 
-impl Visitor for ASTSimplificationPass {
-    type Output = ();
+    fn try_algebraic_simplify(&mut self, expression: &mut Expression) {
+        if let Expression::BinaryOp { left, op, right } = expression {
+            use crate::lexer::TokenType;
 
-    fn diagnostics(&self) -> &DiagnosticCollector {
-        &self.diagnostics
+            // Normalize commutative operations: put constants on the right
+            // This reduces pattern matching cases by half
+            let is_commutative = matches!(
+                op.tag,
+                TokenType::Plus | TokenType::Star | TokenType::And | TokenType::Or | TokenType::Equal | TokenType::NotEqual
+            );
+
+            if is_commutative {
+                let left_is_const = matches!(left.as_ref(), Expression::Number(_) | Expression::Boolean(_));
+                let right_is_const = matches!(right.as_ref(), Expression::Number(_) | Expression::Boolean(_));
+
+                // If left is constant but right isn't, swap them
+                if left_is_const && !right_is_const {
+                    std::mem::swap(left, right);
+                }
+            }
+
+            // Check for variable identities (x op x)
+            if let (Expression::Variable(a), Expression::Variable(b)) =
+                (left.as_ref(), right.as_ref())
+            {
+                if a == b {
+                    match op.tag {
+                        TokenType::Minus => {
+                            self.diagnostics.info(format!(
+                                "Algebraic simplification: {} - {} -> 0 at line {}, column {}",
+                                a, a, op.row, op.column
+                            ));
+                            *expression = Expression::Number(0.0);
+                            self.folded_nodes_count += 1;
+                            return;
+                        }
+                        TokenType::Equal => {
+                            self.diagnostics.info(format!(
+                                "Algebraic simplification: {} == {} -> true at line {}, column {}",
+                                a, a, op.row, op.column
+                            ));
+                            *expression = Expression::Boolean(true);
+                            self.folded_nodes_count += 1;
+                            return;
+                        }
+                        TokenType::NotEqual => {
+                            self.diagnostics.info(format!(
+                                "Algebraic simplification: {} != {} -> false at line {}, column {}",
+                                a, a, op.row, op.column
+                            ));
+                            *expression = Expression::Boolean(false);
+                            self.folded_nodes_count += 1;
+                            return;
+                        }
+                        TokenType::Less | TokenType::Greater => {
+                            self.diagnostics.info(format!(
+                                "Algebraic simplification: {} {} {} -> false at line {}, column {}",
+                                a, op.lexeme, a, op.row, op.column
+                            ));
+                            *expression = Expression::Boolean(false);
+                            self.folded_nodes_count += 1;
+                            return;
+                        }
+                        TokenType::LessEqual | TokenType::GreaterEqual => {
+                            self.diagnostics.info(format!(
+                                "Algebraic simplification: {} {} {} -> true at line {}, column {}",
+                                a, op.lexeme, a, op.row, op.column
+                            ));
+                            *expression = Expression::Boolean(true);
+                            self.folded_nodes_count += 1;
+                            return;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            // Number identity simplifications
+            // (After normalization, constants are always on the right for commutative ops)
+            match (left.as_ref(), &op.tag, right.as_ref()) {
+                // x + 0 -> x
+                (_, TokenType::Plus, Expression::Number(n)) if *n == 0.0 => {
+                    self.diagnostics.info(format!(
+                        "Algebraic simplification: expr + 0 -> expr at line {}, column {}",
+                        op.row, op.column
+                    ));
+                    *expression = (**left).clone();
+                    self.folded_nodes_count += 1;
+                }
+                // x - 0 -> x
+                (_, TokenType::Minus, Expression::Number(n)) if *n == 0.0 => {
+                    self.diagnostics.info(format!(
+                        "Algebraic simplification: expr - 0 -> expr at line {}, column {}",
+                        op.row, op.column
+                    ));
+                    *expression = (**left).clone();
+                    self.folded_nodes_count += 1;
+                }
+                // x * 1 -> x
+                (_, TokenType::Star, Expression::Number(n)) if *n == 1.0 => {
+                    self.diagnostics.info(format!(
+                        "Algebraic simplification: expr * 1 -> expr at line {}, column {}",
+                        op.row, op.column
+                    ));
+                    *expression = (**left).clone();
+                    self.folded_nodes_count += 1;
+                }
+                // x * 0 -> 0
+                (_, TokenType::Star, Expression::Number(n)) if *n == 0.0 => {
+                    self.diagnostics.info(format!(
+                        "Algebraic simplification: expr * 0 -> 0 at line {}, column {}",
+                        op.row, op.column
+                    ));
+                    *expression = Expression::Number(0.0);
+                    self.folded_nodes_count += 1;
+                }
+                // x / 1 -> x
+                (_, TokenType::Slash, Expression::Number(n)) if *n == 1.0 => {
+                    self.diagnostics.info(format!(
+                        "Algebraic simplification: expr / 1 -> expr at line {}, column {}",
+                        op.row, op.column
+                    ));
+                    *expression = (**left).clone();
+                    self.folded_nodes_count += 1;
+                }
+
+                // Boolean identity simplifications
+                // x && true -> x
+                (_, TokenType::And, Expression::Boolean(b)) if *b => {
+                    self.diagnostics.info(format!(
+                        "Algebraic simplification: expr && true -> expr at line {}, column {}",
+                        op.row, op.column
+                    ));
+                    *expression = (**left).clone();
+                    self.folded_nodes_count += 1;
+                }
+                // x && false -> false
+                (_, TokenType::And, Expression::Boolean(b)) if !*b => {
+                    self.diagnostics.info(format!(
+                        "Algebraic simplification: expr && false -> false at line {}, column {}",
+                        op.row, op.column
+                    ));
+                    *expression = Expression::Boolean(false);
+                    self.folded_nodes_count += 1;
+                }
+                // x || true -> true
+                (_, TokenType::Or, Expression::Boolean(b)) if *b => {
+                    self.diagnostics.info(format!(
+                        "Algebraic simplification: expr || true -> true at line {}, column {}",
+                        op.row, op.column
+                    ));
+                    *expression = Expression::Boolean(true);
+                    self.folded_nodes_count += 1;
+                }
+                // x || false -> x
+                (_, TokenType::Or, Expression::Boolean(b)) if !*b => {
+                    self.diagnostics.info(format!(
+                        "Algebraic simplification: expr || false -> expr at line {}, column {}",
+                        op.row, op.column
+                    ));
+                    *expression = (**left).clone();
+                    self.folded_nodes_count += 1;
+                }
+
+                _ => {}
+            }
+        }
+
+        // Handle double negation: !!x -> x
+        if let Expression::UnaryOp { left, op } = expression {
+            use crate::lexer::TokenType;
+            if op.tag == TokenType::Bang {
+                if let Expression::UnaryOp {
+                    left: inner_left,
+                    op: inner_op,
+                } = left.as_ref()
+                {
+                    if inner_op.tag == TokenType::Bang {
+                        self.diagnostics.info(format!(
+                            "Algebraic simplification: !!expr -> expr at line {}, column {}",
+                            op.row, op.column
+                        ));
+                        *expression = (**inner_left).clone();
+                        self.folded_nodes_count += 1;
+                    }
+                }
+            }
+        }
     }
 
-    fn diagnostics_mut(&mut self) -> &mut DiagnosticCollector {
-        &mut self.diagnostics
-    }
-
-    fn visit_program(&mut self, program: &mut Program) {
-        self.walk_program(program);
-        self.diagnostics
-            .info(format!("Constant folded {} nodes", self.folded_nodes_count));
-    }
-
-    fn visit_function(&mut self, function: &mut Function) {
-        self.walk_function(function);
-    }
-
-    fn visit_statement(&mut self, statement: &mut Statement) {
-        self.walk_statement(statement);
-    }
-
-    fn visit_expression(&mut self, expression: &mut Expression) {
-        // First fold children (bottom-up)
-        self.walk_expression(expression);
-
-        // Then try to fold this expression
+    fn try_constant_fold(&mut self, expression: &mut Expression) {
         match expression {
             Expression::BinaryOp { left, op, right } => {
                 // Match on both operands being the same type
@@ -173,13 +333,10 @@ impl Visitor for ASTSimplificationPass {
                         }
                     }
 
-                    // Different types or not constants - no folding
                     _ => {}
                 }
             }
             Expression::UnaryOp { left, op } => {
-                // Check if operand is a constant
-
                 match left.as_ref() {
                     Expression::Number(n) => {
                         if let Some(result) = self.eval_unary(*n, op) {
@@ -206,5 +363,42 @@ impl Visitor for ASTSimplificationPass {
             }
             _ => {}
         }
+    }
+}
+
+impl Visitor for ASTSimplificationPass {
+    type Output = ();
+
+    fn diagnostics(&self) -> &DiagnosticCollector {
+        &self.diagnostics
+    }
+
+    fn diagnostics_mut(&mut self) -> &mut DiagnosticCollector {
+        &mut self.diagnostics
+    }
+
+    fn visit_program(&mut self, program: &mut Program) {
+        self.walk_program(program);
+        self.diagnostics
+            .info(format!("Constant folded {} nodes", self.folded_nodes_count));
+    }
+
+    fn visit_function(&mut self, function: &mut Function) {
+        self.walk_function(function);
+    }
+
+    fn visit_statement(&mut self, statement: &mut Statement) {
+        self.walk_statement(statement);
+    }
+
+    fn visit_expression(&mut self, expression: &mut Expression) {
+        // First fold children (bottom-up)
+        self.walk_expression(expression);
+
+        // Try constant folding
+        self.try_constant_fold(expression);
+
+        // After constant folding, try algebraic simplification
+        self.try_algebraic_simplify(expression);
     }
 }

@@ -1,0 +1,53 @@
+# Test number identity simplifications
+fn test_number_identities() -> f64 {
+    var x: f64 = 10
+
+    var a = x + 0
+    var b = 0 + x
+    var c = x - 0
+    var d = x * 1
+    var e = 1 * x
+    var f = x * 0
+    var g = 0 * x
+    var h = x / 1
+
+    return a + b + c + d + e + f + g + h
+}
+
+# Test boolean identity simplifications
+fn test_bool_identities() -> f64 {
+    var x: bool = true
+
+    var a = x && true
+    var b = true && x
+    var c = x && false
+    var d = false && x
+    var e = x || true
+    var f = true || x
+    var g = x || false
+    var h = false || x
+
+    return 0
+}
+
+# Test variable identities
+fn test_variable_identities() -> f64 {
+    var x: f64 = 5
+
+    var a = x - x
+    var b = x == x
+    var c = x != x
+    var d = x < x
+    var e = x > x
+    var f = x <= x
+    var g = x >= x
+
+    return a
+}
+
+# Test double negation
+fn test_double_negation() -> f64 {
+    var x: bool = true
+    var a = !!x
+    return 0
+}
