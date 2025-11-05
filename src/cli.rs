@@ -1,9 +1,8 @@
-use crate::lexer::LexerContext;
-use crate::parser::ParserContext;
-use crate::passes::counting::CountingPass;
-use crate::passes::ast_simplification::ASTSimplificationPass;
-use crate::passes::print::PrintPass;
-use crate::passes::typechecking::TypecheckingPass;
+use crate::frontend::{LexerContext, ParserContext};
+use crate::hir::passes::counting::CountingPass;
+use crate::hir::passes::ast_simplification::ASTSimplificationPass;
+use crate::hir::passes::print::PrintPass;
+use crate::hir::passes::typechecking::TypecheckingPass;
 use crate::visitor::Visitor;
 use std::fs;
 

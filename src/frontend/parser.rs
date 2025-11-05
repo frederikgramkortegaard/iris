@@ -1,5 +1,6 @@
 use crate::ast::{Block, Expression, Program, Statement};
-use crate::lexer::{Span, Token, TokenType};
+use crate::frontend::{Token, TokenType};
+use crate::span::Span;
 use crate::types::{BaseType, Function, Type, Variable};
 
 impl Expression {

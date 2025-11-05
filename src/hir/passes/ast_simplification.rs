@@ -1,4 +1,5 @@
 use crate::ast::{Expression, Program, Statement};
+use crate::frontend::{Token, TokenType};
 use crate::types::Function;
 use crate::visitor::{DiagnosticCollector, Visitor};
 
@@ -16,8 +17,8 @@ impl ASTSimplificationPass {
         }
     }
 
-    fn eval_binop(&mut self, left: f64, right: f64, op: &crate::lexer::Token) -> Option<f64> {
-        use crate::lexer::TokenType;
+    fn eval_binop(&mut self, left: f64, right: f64, op: &Token) -> Option<f64> {
+        use TokenType;
 
         match op.tag {
             TokenType::Plus => Some(left + right),
@@ -49,8 +50,8 @@ impl ASTSimplificationPass {
         }
     }
 
-    fn eval_unary(&self, operand: f64, op: &crate::lexer::Token) -> Option<f64> {
-        use crate::lexer::TokenType;
+    fn eval_unary(&self, operand: f64, op: &Token) -> Option<f64> {
+        use TokenType;
 
         match op.tag {
             TokenType::Minus => Some(-operand),
@@ -63,9 +64,9 @@ impl ASTSimplificationPass {
         &self,
         left: bool,
         right: bool,
-        op: &crate::lexer::Token,
+        op: &Token,
     ) -> Option<bool> {
-        use crate::lexer::TokenType;
+        use TokenType;
 
         match op.tag {
             TokenType::And => Some(left && right),
@@ -80,9 +81,9 @@ impl ASTSimplificationPass {
         &self,
         left: f64,
         right: f64,
-        op: &crate::lexer::Token,
+        op: &Token,
     ) -> Option<bool> {
-        use crate::lexer::TokenType;
+        use TokenType;
 
         match op.tag {
             TokenType::Less => Some(left < right),
@@ -95,8 +96,8 @@ impl ASTSimplificationPass {
         }
     }
 
-    fn eval_unary_bool(&self, operand: bool, op: &crate::lexer::Token) -> Option<bool> {
-        use crate::lexer::TokenType;
+    fn eval_unary_bool(&self, operand: bool, op: &Token) -> Option<bool> {
+        use TokenType;
 
         match op.tag {
             TokenType::Bang => Some(!operand),
@@ -106,7 +107,7 @@ impl ASTSimplificationPass {
 
     fn try_algebraic_simplify(&mut self, expression: &mut Expression) {
         if let Expression::BinaryOp { left, op, right, span } = expression {
-            use crate::lexer::TokenType;
+            use TokenType;
 
             // Normalize commutative operations: put constants on the right
             // This reduces pattern matching cases by half
@@ -276,7 +277,7 @@ impl ASTSimplificationPass {
 
         // Handle double negation: !!x -> x
         if let Expression::UnaryOp { left, op, .. } = expression {
-            use crate::lexer::TokenType;
+            use TokenType;
             if op.tag == TokenType::Bang {
                 if let Expression::UnaryOp {
                     left: inner_left,

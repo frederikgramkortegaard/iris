@@ -1,4 +1,5 @@
-use crate::lexer::{Token, Span};
+use crate::frontend::Token;
+use crate::span::Span;
 use crate::types::{Function, Scope, Type, Variable};
 use std::cell::RefCell;
 use std::rc::Rc;

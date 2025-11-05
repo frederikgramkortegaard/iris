@@ -1,5 +1,5 @@
 use crate::ast::Block;
-use crate::lexer::TokenType;
+use crate::frontend::TokenType;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]

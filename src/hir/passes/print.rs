@@ -1,5 +1,5 @@
 use crate::ast::{Expression, Program, Statement};
-use crate::lexer::Span;
+use crate::span::Span;
 use crate::types::{Function, Variable};
 use crate::visitor::{DiagnosticCollector, Visitor};
 
