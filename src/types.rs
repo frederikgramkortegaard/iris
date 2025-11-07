@@ -109,13 +109,15 @@ pub struct Variable {
 
 #[derive(Debug)]
 pub struct Scope {
+    pub id: usize,
     pub symbols: HashMap<String, Variable>,
     pub functions: HashMap<String, Function>,
 }
 
 impl Scope {
-    pub fn new() -> Self {
+    pub fn new(id: usize) -> Self {
         Scope {
+            id,
             symbols: HashMap::new(),
             functions: HashMap::new(),
         }

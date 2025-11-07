@@ -1,9 +1,12 @@
 use crate::frontend::{LexerContext, ParserContext};
-use crate::hir::passes::counting::CountingPass;
 use crate::hir::passes::ast_simplification::ASTSimplificationPass;
+use crate::hir::passes::counting::CountingPass;
+use crate::hir::passes::lowering::LoweringPass;
 use crate::hir::passes::print::PrintPass;
 use crate::hir::passes::typechecking::TypecheckingPass;
-use crate::visitor::Visitor;
+use crate::hir::visitor::Visitor;
+use crate::mir::passes::print::MirPrintingPass;
+use crate::mir::visitor::MirVisitor;
 use std::fs;
 
 /// Runs the compiler CLI with the given command-line arguments.
@@ -31,9 +34,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     // Parse the tokens
     let mut parser = ParserContext::new(tokens);
-    let mut program = parser.parse().map_err(|e| {
-        format!("Parse error: {}", e.message)
-    })?;
+    let mut program = parser
+        .parse()
+        .map_err(|e| format!("Parse error: {}", e.message))?;
 
     // Run counting pass
     let mut counting_pass = CountingPass::new();
@@ -51,6 +54,13 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Err("Compilation failed due to errors".into());
     }
 
+    // Run AST simplification pass (constant folding, boolean folding, etc.)
+    let mut ast_simplification_pass = ASTSimplificationPass::new();
+    ast_simplification_pass.visit_program(&mut program);
+    print_diagnostics(&ast_simplification_pass);
+    if ast_simplification_pass.diagnostics().has_errors() {
+        return Err("Compilation failed due to errors".into());
+    }
     // Run typechecking pass
     let mut typechecking_pass = TypecheckingPass::new();
     typechecking_pass.visit_program(&mut program);
@@ -58,15 +68,27 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     if typechecking_pass.diagnostics().has_errors() {
         return Err("Compilation failed due to errors".into());
     }
-    //
-    // Run AST simplification pass (constant folding, boolean folding, etc.)
-    let mut ast_simplification_pass = ASTSimplificationPass::new();
 
-    ast_simplification_pass.visit_program(&mut program);
-    print_diagnostics(&ast_simplification_pass);
-    if ast_simplification_pass.diagnostics().has_errors() {
+    // Lower HIR to MIR
+    let mut lowering_pass = LoweringPass::new();
+    let mut mir = lowering_pass.lower(&mut program);
+    print_diagnostics(&lowering_pass);
+    if lowering_pass.diagnostics().has_errors() {
         return Err("Compilation failed due to errors".into());
     }
+
+    let mut mir_print_pass = MirPrintingPass::new();
+    mir_print_pass.visit_program(&mut mir);
+
+    println!("\nMIR: Generated {} functions", mir.functions.len());
+    for func in &mir.functions {
+        println!("  Function: {} ({} blocks)", func.name, func.arena.len());
+    }
+
+    // TODO: Build CFG from HIR
+    // TODO: Convert to SSA form
+    // TODO: Run MIR optimization passes
+    // TODO: Lower to LLVM IR / codegen
 
     Ok(())
 }

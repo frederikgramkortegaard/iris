@@ -1,0 +1,6 @@
+
+fn test_redeclaration() -> f64 {
+    var x: f64 = 2
+    return x
+}
+  

@@ -1,0 +1,12 @@
+fn test_nested_if_with_statements(x: f64) -> f64 {
+  var a = 0
+  if (x > 10) {
+    if (x > 20) {
+      a = 2
+    } else {
+      a = 1
+    }
+    a = a + 100
+  }
+  return a
+}

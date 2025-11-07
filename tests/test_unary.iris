@@ -1,0 +1,11 @@
+fn test_neg(x: f64) -> f64 {
+    return -x
+}
+
+fn test_not(b: bool) -> bool {
+    return !b
+}
+
+fn test_double_neg(x: f64) -> f64 {
+    return -(-x)
+}

@@ -1,6 +1,6 @@
 use crate::ast::{Expression, Program, Statement};
 use crate::types::{Function, Variable};
-use crate::visitor::{DiagnosticCollector, Visitor};
+use crate::hir::visitor::{DiagnosticCollector, Visitor};
 
 /// Example visitor that counts different types of nodes in the AST
 pub struct CountingPass {

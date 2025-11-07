@@ -7,6 +7,7 @@ pub mod span;
 pub mod frontend;
 pub mod ast;
 pub mod types;
+pub mod diagnostics;
 pub mod cli;
-pub mod visitor;
 pub mod hir;
+pub mod mir;

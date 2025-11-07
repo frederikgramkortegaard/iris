@@ -523,6 +523,7 @@ impl ParserContext {
                     Ok(Expression::Number {
                         value,
                         span: Span::from_token(&token),
+                        typ: None,
                     })
                 }
 
@@ -532,6 +533,7 @@ impl ParserContext {
                     Ok(Expression::Boolean {
                         value: true,
                         span: Span::from_token(&token),
+                        typ: None,
                     })
                 }
                 TokenType::False => {
@@ -539,6 +541,7 @@ impl ParserContext {
                     Ok(Expression::Boolean {
                         value: false,
                         span: Span::from_token(&token),
+                        typ: None,
                     })
                 }
 
@@ -580,6 +583,7 @@ impl ParserContext {
                                 identifier: identifier.lexeme,
                                 args,
                                 span,
+                                typ: None,
                             });
                         }
                     }
@@ -589,6 +593,7 @@ impl ParserContext {
                     Ok(Expression::Variable {
                         name: identifier.lexeme,
                         span,
+                        typ: None,
                     })
                 }
 
@@ -614,6 +619,7 @@ impl ParserContext {
                         op,
                         left: Box::new(expr),
                         span,
+                        typ: None,
                     })
                 }
                 _ => self.parse_primary(),
@@ -665,6 +671,7 @@ impl ParserContext {
                 op,
                 right: rhs,
                 span,
+                typ: None,
             });
         }
     }

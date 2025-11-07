@@ -26,30 +26,50 @@ pub enum Expression {
     Number {
         value: f64,
         span: Span,
+        typ: Option<Type>,
     },
     Boolean {
         value: bool,
         span: Span,
+        typ: Option<Type>,
     },
     BinaryOp {
         left: Box<Expression>,
         op: Token,
         right: Box<Expression>,
         span: Span,
+        typ: Option<Type>,
     },
     UnaryOp {
         left: Box<Expression>,
         op: Token,
         span: Span,
+        typ: Option<Type>,
     },
     Call {
         identifier: String, //@TODO : In the future this should be an expression to allow for higher-order functions.
         args: Vec<Expression>,
         span: Span,
+        typ: Option<Type>,
     },
     Variable {
         name: String,
         span: Span,
+        typ: Option<Type>,
+    }
+}
+
+impl Expression {
+    /// Get the type of this expression (set by typechecker)
+    pub fn typ(&self) -> &Option<Type> {
+        match self {
+            Expression::Number { typ, .. } => typ,
+            Expression::Boolean { typ, .. } => typ,
+            Expression::BinaryOp { typ, .. } => typ,
+            Expression::UnaryOp { typ, .. } => typ,
+            Expression::Call { typ, .. } => typ,
+            Expression::Variable { typ, .. } => typ,
+        }
     }
 }
 

@@ -8,6 +8,7 @@ fn test_if_statement(x: f64) -> f64 {
 
 fn test_nested_if(x: f64) -> f64 {
   if (x > 10) {
+
     if (x > 20) {
       return 2
     } else {
@@ -36,6 +37,7 @@ fn test_nested_while(n: f64) -> f64 {
     while (j < i) {
       sum = sum + 1
       j = j + 1
+      return 1
     }
     i = i + 1
   }

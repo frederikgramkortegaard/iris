@@ -1,7 +1,7 @@
 use crate::ast::{Expression, Program, Statement};
 use crate::frontend::{Token, TokenType};
 use crate::types::Function;
-use crate::visitor::{DiagnosticCollector, Visitor};
+use crate::hir::visitor::{DiagnosticCollector, Visitor};
 
 /// Visitor that performs AST simplification (constant folding, boolean folding, algebraic simplification)
 pub struct ASTSimplificationPass {
@@ -106,7 +106,10 @@ impl ASTSimplificationPass {
     }
 
     fn try_algebraic_simplify(&mut self, expression: &mut Expression) {
-        if let Expression::BinaryOp { left, op, right, span } = expression {
+        // Save type before pattern matching (to avoid borrow issues)
+        let saved_typ = expression.typ().clone();
+
+        if let Expression::BinaryOp { left, op, right, span, .. } = expression {
             use TokenType;
 
             // Normalize commutative operations: put constants on the right
@@ -132,13 +135,14 @@ impl ASTSimplificationPass {
             {
                 if a == b {
                     let expr_span = *span;
+                    let expr_typ = saved_typ.clone();
                     match op.tag {
                         TokenType::Minus => {
                             self.diagnostics.info(format!(
                                 "Algebraic simplification: {} - {} -> 0 at line {}, column {}",
                                 a, a, op.row, op.column
                             ));
-                            *expression = Expression::Number { value: 0.0, span: expr_span };
+                            *expression = Expression::Number { value: 0.0, span: expr_span, typ: expr_typ };
                             self.folded_nodes_count += 1;
                             return;
                         }
@@ -147,7 +151,7 @@ impl ASTSimplificationPass {
                                 "Algebraic simplification: {} == {} -> true at line {}, column {}",
                                 a, a, op.row, op.column
                             ));
-                            *expression = Expression::Boolean { value: true, span: expr_span };
+                            *expression = Expression::Boolean { value: true, span: expr_span, typ: expr_typ };
                             self.folded_nodes_count += 1;
                             return;
                         }
@@ -156,7 +160,7 @@ impl ASTSimplificationPass {
                                 "Algebraic simplification: {} != {} -> false at line {}, column {}",
                                 a, a, op.row, op.column
                             ));
-                            *expression = Expression::Boolean { value: false, span: expr_span };
+                            *expression = Expression::Boolean { value: false, span: expr_span, typ: expr_typ };
                             self.folded_nodes_count += 1;
                             return;
                         }
@@ -165,7 +169,7 @@ impl ASTSimplificationPass {
                                 "Algebraic simplification: {} {} {} -> false at line {}, column {}",
                                 a, op.lexeme, a, op.row, op.column
                             ));
-                            *expression = Expression::Boolean { value: false, span: expr_span };
+                            *expression = Expression::Boolean { value: false, span: expr_span, typ: expr_typ };
                             self.folded_nodes_count += 1;
                             return;
                         }
@@ -174,7 +178,7 @@ impl ASTSimplificationPass {
                                 "Algebraic simplification: {} {} {} -> true at line {}, column {}",
                                 a, op.lexeme, a, op.row, op.column
                             ));
-                            *expression = Expression::Boolean { value: true, span: expr_span };
+                            *expression = Expression::Boolean { value: true, span: expr_span, typ: expr_typ };
                             self.folded_nodes_count += 1;
                             return;
                         }
@@ -186,6 +190,7 @@ impl ASTSimplificationPass {
             // Number identity simplifications
             // (After normalization, constants are always on the right for commutative ops)
             let expr_span = *span;
+            let expr_typ = saved_typ.clone();
             match (left.as_ref(), &op.tag, right.as_ref()) {
                 // x + 0 -> x
                 (_, TokenType::Plus, Expression::Number { value: n, .. }) if *n == 0.0 => {
@@ -220,7 +225,7 @@ impl ASTSimplificationPass {
                         "Algebraic simplification: expr * 0 -> 0 at line {}, column {}",
                         op.row, op.column
                     ));
-                    *expression = Expression::Number { value: 0.0, span: expr_span };
+                    *expression = Expression::Number { value: 0.0, span: expr_span, typ: expr_typ };
                     self.folded_nodes_count += 1;
                 }
                 // x / 1 -> x
@@ -249,7 +254,7 @@ impl ASTSimplificationPass {
                         "Algebraic simplification: expr && false -> false at line {}, column {}",
                         op.row, op.column
                     ));
-                    *expression = Expression::Boolean { value: false, span: expr_span };
+                    *expression = Expression::Boolean { value: false, span: expr_span, typ: expr_typ };
                     self.folded_nodes_count += 1;
                 }
                 // x || true -> true
@@ -258,7 +263,7 @@ impl ASTSimplificationPass {
                         "Algebraic simplification: expr || true -> true at line {}, column {}",
                         op.row, op.column
                     ));
-                    *expression = Expression::Boolean { value: true, span: expr_span };
+                    *expression = Expression::Boolean { value: true, span: expr_span, typ: expr_typ };
                     self.folded_nodes_count += 1;
                 }
                 // x || false -> x
@@ -299,9 +304,13 @@ impl ASTSimplificationPass {
     }
 
     fn try_constant_fold(&mut self, expression: &mut Expression) {
+        // Save type before pattern matching (to avoid borrow issues)
+        let saved_typ = expression.typ().clone();
+
         match expression {
-            Expression::BinaryOp { left, op, right, span } => {
+            Expression::BinaryOp { left, op, right, span, .. } => {
                 let expr_span = *span;
+                let expr_typ = saved_typ.clone();
                 // Match on both operands being the same type
                 match (left.as_ref(), right.as_ref()) {
                     // Both are numbers
@@ -312,7 +321,7 @@ impl ASTSimplificationPass {
                                 "Const folded {} {} {} to {}",
                                 a, op.lexeme, b, result
                             ));
-                            *expression = Expression::Number { value: result, span: expr_span };
+                            *expression = Expression::Number { value: result, span: expr_span, typ: expr_typ };
                             self.folded_nodes_count += 1;
                         }
                         // Try comparison operations (returns bool)
@@ -321,7 +330,7 @@ impl ASTSimplificationPass {
                                 "Const folded {} {} {} to {}",
                                 a, op.lexeme, b, result
                             ));
-                            *expression = Expression::Boolean { value: result, span: expr_span };
+                            *expression = Expression::Boolean { value: result, span: expr_span, typ: expr_typ };
                             self.folded_nodes_count += 1;
                         }
                     }
@@ -333,7 +342,7 @@ impl ASTSimplificationPass {
                                 "Const folded {} {} {} to {}",
                                 a, op.lexeme, b, result
                             ));
-                            *expression = Expression::Boolean { value: result, span: expr_span };
+                            *expression = Expression::Boolean { value: result, span: expr_span, typ: expr_typ };
                             self.folded_nodes_count += 1;
                         }
                     }
@@ -341,8 +350,9 @@ impl ASTSimplificationPass {
                     _ => {}
                 }
             }
-            Expression::UnaryOp { left, op, span } => {
+            Expression::UnaryOp { left, op, span, .. } => {
                 let expr_span = *span;
+                let expr_typ = saved_typ.clone();
                 match left.as_ref() {
                     Expression::Number { value: n, .. } => {
                         if let Some(result) = self.eval_unary(*n, op) {
@@ -350,7 +360,7 @@ impl ASTSimplificationPass {
                                 "Const folded unary {}{} to {}",
                                 op.lexeme, n, result
                             ));
-                            *expression = Expression::Number { value: result, span: expr_span };
+                            *expression = Expression::Number { value: result, span: expr_span, typ: expr_typ };
                             self.folded_nodes_count += 1;
                         }
                     }
@@ -360,7 +370,7 @@ impl ASTSimplificationPass {
                                 "Const folded unary {}{} to {}",
                                 op.lexeme, b, result
                             ));
-                            *expression = Expression::Boolean { value: result, span: expr_span };
+                            *expression = Expression::Boolean { value: result, span: expr_span, typ: expr_typ };
                             self.folded_nodes_count += 1;
                         }
                     }

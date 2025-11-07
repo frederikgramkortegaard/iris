@@ -1,0 +1,23 @@
+fn test_neg(x: f64) -> f64 {
+    return -x
+}
+
+fn test_not(b: bool) -> bool {
+    return !b
+}
+
+fn test_double_neg(x: f64) -> f64 {
+    return -(-x)
+}
+
+fn test_double_not(b: bool) -> bool {
+    return !!b
+}
+
+fn test_neg_expression(a: f64, b: f64) -> f64 {
+    return -(a + b)
+}
+
+fn test_not_comparison(x: f64, y: f64) -> bool {
+    return !(x > y)
+}

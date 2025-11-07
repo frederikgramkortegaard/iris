@@ -1,0 +1,9 @@
+fn test(x: f64) -> f64 {
+  if (x > 10) {
+    if (x > 20) {
+      var a = 2
+    }
+    return 100
+  }
+  return 0
+}

@@ -1,0 +1,6 @@
+fn test_while(x: f64) -> f64 {
+    while (x > 0) {
+        x = x - 1
+    }
+    return x
+}

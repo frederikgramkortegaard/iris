@@ -1,6 +1,6 @@
 use crate::ast::{Expression, Program, Statement};
 use crate::types::{BaseType, Function, Scope, Type, Variable};
-use crate::visitor::{DiagnosticCollector, Visitor};
+use crate::hir::visitor::{DiagnosticCollector, Visitor};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -9,6 +9,7 @@ pub struct TypecheckingPass {
     diagnostics: DiagnosticCollector,
     scope_stack: Vec<Rc<RefCell<Scope>>>,
     current_function_return_type: Option<Type>,
+    next_scope_id: usize,
 }
 
 impl TypecheckingPass {
@@ -17,7 +18,14 @@ impl TypecheckingPass {
             diagnostics: DiagnosticCollector::new(),
             scope_stack: Vec::new(),
             current_function_return_type: None,
+            next_scope_id: 0,
         }
+    }
+
+    fn allocate_scope_id(&mut self) -> usize {
+        let id = self.next_scope_id;
+        self.next_scope_id += 1;
+        id
     }
 
     pub fn find_variable(&self, name: &str) -> Option<Variable> {
@@ -60,7 +68,7 @@ impl Visitor for TypecheckingPass {
 
     fn visit_program(&mut self, program: &mut Program) -> Self::Output {
         // Create a global scope for globals and function declarations
-        let mut global_scope = Scope::new();
+        let mut global_scope = Scope::new(self.allocate_scope_id());
 
         // Add all global variables to the global scope
         for global in &mut program.globals {
@@ -90,7 +98,7 @@ impl Visitor for TypecheckingPass {
 
     fn visit_function(&mut self, function: &mut Function) -> Self::Output {
         // Create a scope for the function's body
-        let mut scope = Scope::new();
+        let mut scope = Scope::new(self.allocate_scope_id());
 
         // Add the function parameters to the scope
         for arg in &mut function.args {
@@ -185,7 +193,7 @@ impl Visitor for TypecheckingPass {
             }
             Statement::Block { block: b, .. } => {
                 // Create and push scope for bare block
-                let block_scope = Rc::new(RefCell::new(Scope::new()));
+                let block_scope = Rc::new(RefCell::new(Scope::new(self.allocate_scope_id())));
                 b.scope = Some(Rc::clone(&block_scope));
                 self.scope_stack.push(block_scope);
                 self.visit_block(b);
@@ -287,7 +295,7 @@ impl Visitor for TypecheckingPass {
                 }
 
                 // Create and push scope for then block
-                let then_scope = Rc::new(RefCell::new(Scope::new()));
+                let then_scope = Rc::new(RefCell::new(Scope::new(self.allocate_scope_id())));
                 then.scope = Some(Rc::clone(&then_scope));
                 self.scope_stack.push(then_scope);
                 self.visit_block(then);
@@ -295,7 +303,7 @@ impl Visitor for TypecheckingPass {
 
                 // Create and push scope for else block if it exists
                 if let Some(else_block) = els {
-                    let else_scope = Rc::new(RefCell::new(Scope::new()));
+                    let else_scope = Rc::new(RefCell::new(Scope::new(self.allocate_scope_id())));
                     else_block.scope = Some(Rc::clone(&else_scope));
                     self.scope_stack.push(else_scope);
                     self.visit_block(else_block);
@@ -314,7 +322,7 @@ impl Visitor for TypecheckingPass {
                 }
 
                 // Create and push scope for while body
-                let while_scope = Rc::new(RefCell::new(Scope::new()));
+                let while_scope = Rc::new(RefCell::new(Scope::new(self.allocate_scope_id())));
                 body.scope = Some(Rc::clone(&while_scope));
                 self.scope_stack.push(while_scope);
                 self.visit_block(body);
@@ -330,8 +338,9 @@ impl Visitor for TypecheckingPass {
 
     fn visit_expression(&mut self, expression: &mut Expression) -> Self::Output {
         match expression {
-            Expression::Variable { name: identifier, .. } => {
+            Expression::Variable { name: identifier, typ, .. } => {
                 if let Some(var) = self.find_variable(identifier) {
+                    *typ = Some(var.typ.clone());
                     Some(var.typ)
                 } else {
                     self.diagnostics_mut()
@@ -339,12 +348,23 @@ impl Visitor for TypecheckingPass {
                     None
                 }
             }
-            Expression::Number { .. } => Some(Type::Base(BaseType::F64)),
-            Expression::Boolean { .. } => Some(Type::Base(BaseType::Bool)),
-            Expression::UnaryOp { left, op, .. } => {
+            Expression::Number { typ, .. } => {
+                let t = Type::Base(BaseType::F64);
+                *typ = Some(t.clone());
+                Some(t)
+            }
+            Expression::Boolean { typ, .. } => {
+                let t = Type::Base(BaseType::Bool);
+                *typ = Some(t.clone());
+                Some(t)
+            }
+            Expression::UnaryOp { left, op, typ, .. } => {
                 let operand_type = self.visit_expression(left)?;
                 match operand_type.unary_op_result(&op.tag) {
-                    Some(result_type) => Some(result_type),
+                    Some(result_type) => {
+                        *typ = Some(result_type.clone());
+                        Some(result_type)
+                    }
                     None => {
                         self.diagnostics_mut().error(format!(
                             "Invalid unary operation: operator '{}' cannot be applied to type {:?}",
@@ -354,12 +374,15 @@ impl Visitor for TypecheckingPass {
                     }
                 }
             }
-            Expression::BinaryOp { left, op, right, .. } => {
+            Expression::BinaryOp { left, op, right, typ, .. } => {
                 let left_type = self.visit_expression(left)?;
                 let right_type = self.visit_expression(right)?;
 
                 match left_type.binop_result(&op.tag, &right_type) {
-                    Some(result_type) => Some(result_type),
+                    Some(result_type) => {
+                        *typ = Some(result_type.clone());
+                        Some(result_type)
+                    }
                     None => {
                         self.diagnostics_mut().error(format!(
                             "Type mismatch in binary operation: {:?} and {:?} are not compatible",
@@ -369,7 +392,7 @@ impl Visitor for TypecheckingPass {
                     }
                 }
             }
-            Expression::Call { identifier, args, .. } => {
+            Expression::Call { identifier, args, typ, .. } => {
                 if let Some(func) = &mut self.find_function(identifier) {
                     // Check argument count
                     if func.args.len() != args.len() {
@@ -401,7 +424,9 @@ impl Visitor for TypecheckingPass {
                         }
                     }
 
-                    Some(func.return_type.clone())
+                    let return_type = func.return_type.clone();
+                    *typ = Some(return_type.clone());
+                    Some(return_type)
                 } else {
                     self.diagnostics_mut()
                         .error(format!("Unknown function: '{}'", identifier));

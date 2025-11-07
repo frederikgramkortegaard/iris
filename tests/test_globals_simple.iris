@@ -1,0 +1,11 @@
+var global_x = 10
+var global_y = 20
+
+fn use_globals(a: f64) -> f64 {
+  return global_x + global_y + a
+}
+
+fn modify_global() -> f64 {
+  global_x = 5
+  return global_x
+}
