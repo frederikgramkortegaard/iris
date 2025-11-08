@@ -38,7 +38,6 @@ impl LoweringPass {
         }
     }
 
-
     fn push_scope(&mut self) {
         self.scope_stack.push(HashMap::new());
     }
@@ -79,6 +78,7 @@ impl LoweringPass {
         func.arena.alloc(BasicBlock {
             instructions: Vec::new(),
             terminator: Terminator::Unreachable,
+            phi_nodes: Vec::new(),
         })
     }
 
@@ -126,8 +126,7 @@ impl LoweringPass {
                   // should've solved this already.
             },
             Type::PointerType(_) => {
-                // TODO: Proper pointer type support
-                MirType::I64
+                panic!("Not Yet Implemented")
             }
         }
     }
@@ -159,7 +158,6 @@ impl Visitor for LoweringPass {
     }
 
     fn visit_function(&mut self, function: &mut Function) -> Self::Output {
-
         // Push function scope for parameters
         self.push_scope();
 
@@ -367,11 +365,11 @@ impl Visitor for LoweringPass {
         match expression {
             Expression::Number { value, .. } => {
                 // Return immediate value
-                Some(Operand::imm_f64(*value))
+                Some(Operand::ImmF64(*value))
             }
             Expression::Boolean { value, .. } => {
                 // Return immediate boolean
-                Some(Operand::imm_bool(*value))
+                Some(Operand::ImmBool(*value))
             }
             Expression::Variable { name, .. } => {
                 // Look up variable's register
@@ -380,7 +378,7 @@ impl Visitor for LoweringPass {
                         .error(format!("Variable '{}' not found", name));
                     return None;
                 };
-                Some(Operand::reg(reg))
+                Some(Operand::Reg(reg))
             }
             Expression::BinaryOp {
                 left,
@@ -426,7 +424,7 @@ impl Visitor for LoweringPass {
                     args: vec![left_op, right_op],
                 });
 
-                Some(Operand::reg(result_reg))
+                Some(Operand::Reg(result_reg))
             }
             Expression::UnaryOp { left, op, .. } => {
                 match op.tag {
@@ -438,7 +436,7 @@ impl Visitor for LoweringPass {
                             dest,
                             op: Opcode::Sub,
                             typ: mir_type,
-                            args: vec![Operand::imm_f64(0.0), val],
+                            args: vec![Operand::ImmF64(0.0), val],
                         });
                         return Some(Operand::Reg(dest));
                     }
@@ -449,7 +447,7 @@ impl Visitor for LoweringPass {
                             dest,
                             op: Opcode::Eq,
                             typ: MirType::I1,
-                            args: vec![Operand::imm_f64(0.0), val],
+                            args: vec![Operand::ImmF64(0.0), val],
                         });
                         return Some(Operand::Reg(dest));
                     }

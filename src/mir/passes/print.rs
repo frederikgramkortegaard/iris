@@ -37,6 +37,9 @@ impl MirPrintingPass {
             Operand::ImmF64(f) => format!("{}", f),
             Operand::ImmBool(b) => format!("{}", b),
             Operand::Label(s) => format!("@{}", s),
+            Operand::Pair(block_id, operand) => {
+                format!("[{}, {}]", self.fmt_block(*block_id), self.fmt_operand(operand))
+            }
         }
     }
 

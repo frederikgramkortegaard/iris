@@ -1,5 +1,6 @@
 pub mod passes;
 pub mod visitor;
+pub mod cfg;
 
 #[derive(Debug)]
 pub enum Opcode {
@@ -18,6 +19,8 @@ pub enum Opcode {
     Le,
     Gt,
     Ge,
+
+    Phi
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,28 +49,7 @@ pub enum Operand {
     ImmF64(f64),
     ImmBool(bool),
     Label(String),
-}
-
-impl Operand {
-    /// Create a register operand
-    pub fn reg(r: Reg) -> Self {
-        Operand::Reg(r)
-    }
-
-    /// Create an integer immediate operand
-    pub fn imm_i64(val: i64) -> Self {
-        Operand::ImmI64(val)
-    }
-
-    /// Create a float immediate operand
-    pub fn imm_f64(val: f64) -> Self {
-        Operand::ImmF64(val)
-    }
-
-    /// Create a boolean immediate operand
-    pub fn imm_bool(val: bool) -> Self {
-        Operand::ImmBool(val)
-    }
+    Pair(BlockId, Box<Operand>) // Used for Phi nodes
 }
 
 /// Type-safe block identifier (index into BlockArena)
@@ -96,6 +78,7 @@ pub struct Instruction {
 pub struct BasicBlock {
     pub instructions: Vec<Instruction>,
     pub terminator: Terminator,
+    pub phi_nodes: Vec<Instruction>
 }
 
 #[derive(Debug)]
@@ -179,6 +162,7 @@ impl MirFunction {
         let entry = arena.alloc(BasicBlock {
             instructions: Vec::new(),
             terminator: Terminator::Unreachable,
+            phi_nodes: Vec::new(),
         });
 
         MirFunction {
