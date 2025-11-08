@@ -21,30 +21,27 @@ impl MirSSAPass {
         self.visit_program(program);
     }
 
+    /// Iterative data-flow method
     pub fn compute_dominators(
         &mut self,
         function: &MirFunction,
         cfg: &CFGAnalysis,
     ) -> HashMap<BlockId, HashSet<BlockId>> {
         let mut dom: HashMap<BlockId, HashSet<BlockId>> = HashMap::new();
-        let all_blocks: HashSet<BlockId> = function.arena.iter().map(|(a, _)| a).collect();
-
-        let entry_id = function.entry;
+        let all_blocks: Vec<BlockId> = function.arena.iter().map(|(a, _)| a).collect();
 
         for &node in &all_blocks {
-            if node == entry_id {
+            if node == function.entry {
                 dom.insert(node, HashSet::from([function.entry]));
             } else {
-                dom.insert(node, all_blocks.clone());
+                dom.insert(node, HashSet::from_iter(all_blocks.clone()));
             }
         }
 
         loop {
             let mut changed = false;
-            let old_dom = dom.clone();
-
             for &node in &all_blocks {
-                if node == entry_id {
+                if node == function.entry {
                     continue;
                 }
                 let preds = cfg.predecessors.get(&node).unwrap();
@@ -53,9 +50,9 @@ impl MirSSAPass {
                     continue;
                 }
 
-                let mut inter: HashSet<BlockId> = old_dom[&preds[0]].clone();
+                let mut inter: HashSet<BlockId> = dom.get(&preds[0]).unwrap().clone();
                 for &p in &preds[1..] {
-                    inter.retain(|x| old_dom[&p].contains(x));
+                    inter.retain(|x| dom.get(&p).unwrap().contains(x));
                 }
 
                 inter.insert(node);
