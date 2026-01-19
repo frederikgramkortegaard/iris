@@ -118,22 +118,22 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Err("Compilation failed due to errors".into());
     }
 
-    // Convert MIR to SSA
-    let mut ssa_pass = MirSSAPass::new();
-    ssa_pass.convert(&mut mir);
-    print_mir_diagnostics(&ssa_pass);
-    if ssa_pass.diagnostics().has_errors() {
-        return Err("Compilation failed due to errors".into());
-    }
+//    // Convert MIR to SSA
+//    let mut ssa_pass = MirSSAPass::new();
+//    ssa_pass.convert(&mut mir);
+//    print_mir_diagnostics(&ssa_pass);
+//    if ssa_pass.diagnostics().has_errors() {
+//        return Err("Compilation failed due to errors".into());
+//    }
 
-   let mut mir_print_pass = MirPrintingPass::new();
-   mir_print_pass.visit_program(&mut mir);
-   print_mir_diagnostics(&mir_print_pass);
-
-   println!("\nMIR: Generated {} functions", mir.functions.len());
-   for func in &mir.functions {
-       println!("  Function: {} ({} blocks)", func.name, func.arena.len());
-   }
+//   let mut mir_print_pass = MirPrintingPass::new();
+//   mir_print_pass.visit_program(&mut mir);
+//   print_mir_diagnostics(&mir_print_pass);
+//
+//   println!("\nMIR: Generated {} functions", mir.functions.len());
+//   for func in &mir.functions {
+//       println!("  Function: {} ({} blocks)", func.name, func.arena.len());
+//   }
 
 
     Ok(())
