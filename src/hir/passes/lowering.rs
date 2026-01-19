@@ -18,6 +18,12 @@ pub struct LoweringPass {
     current_block: Option<BlockId>,
 }
 
+impl Default for LoweringPass {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LoweringPass {
     pub fn new() -> Self {
         LoweringPass {
@@ -347,7 +353,7 @@ impl Visitor for LoweringPass {
 
         // Pre-allocate all variables from the HIR scope
         if let Some(hir_scope) = &block.scope {
-            for (var_name, _var) in &hir_scope.borrow().symbols {
+            for var_name in hir_scope.borrow().symbols.keys() {
                 self.alloc_variable(var_name.clone());
             }
         }

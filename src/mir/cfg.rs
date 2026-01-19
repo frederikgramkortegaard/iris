@@ -1,4 +1,4 @@
-use crate::mir::{BasicBlock, BlockId, Instruction, MirFunction, MirProgram, Operand, Terminator};
+use crate::mir::{BlockId, MirFunction, Terminator};
 
 use std::collections::HashMap;
 
@@ -92,7 +92,7 @@ impl CFGAnalysis {
             changed = false;
 
             for b in &rpo[1..] {
-                let new_idom = predecessors.get(&b).and_then(|ps| {
+                let new_idom = predecessors.get(b).and_then(|ps| {
                     ps.iter()
                         .find(|p| idoms.get(p).is_some_and(|x| x.is_some()))
                         .copied()

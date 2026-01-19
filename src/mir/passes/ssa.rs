@@ -1,13 +1,19 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::cfg::CFGAnalysis;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{BasicBlock, BlockId, Instruction, MirFunction, MirProgram, Operand, Terminator};
+use crate::mir::{BlockId, MirFunction, MirProgram};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
 /// Converts MIR to SSA Form
 pub struct MirSSAPass {
     diagnostics: DiagnosticCollector,
+}
+
+impl Default for MirSSAPass {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MirSSAPass {
@@ -118,7 +124,7 @@ impl MirSSAPass {
         function: &MirFunction,
         dominators: &HashMap<BlockId, HashSet<BlockId>>,
     ) -> HashMap<BlockId, BlockId> {
-        let mut idom = HashMap::new();
+        let idom = HashMap::new();
 
         for (block_id, doms) in dominators {
             if block_id == &function.entry {

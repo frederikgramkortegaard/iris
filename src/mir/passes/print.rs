@@ -8,6 +8,12 @@ pub struct MirPrintingPass {
     indent: usize,
 }
 
+impl Default for MirPrintingPass {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MirPrintingPass {
     pub fn new() -> Self {
         MirPrintingPass {

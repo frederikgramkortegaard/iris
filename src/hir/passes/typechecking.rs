@@ -12,6 +12,12 @@ pub struct TypecheckingPass {
     next_scope_id: usize,
 }
 
+impl Default for TypecheckingPass {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TypecheckingPass {
     pub fn new() -> Self {
         TypecheckingPass {

@@ -103,6 +103,12 @@ pub struct BlockArena {
     blocks: Vec<BasicBlock>,
 }
 
+impl Default for BlockArena {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BlockArena {
     pub fn new() -> Self {
         BlockArena { blocks: Vec::new() }

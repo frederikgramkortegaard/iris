@@ -11,6 +11,12 @@ pub struct CountingPass {
     diagnostics: DiagnosticCollector,
 }
 
+impl Default for CountingPass {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CountingPass {
     pub fn new() -> Self {
         CountingPass {
@@ -34,7 +40,7 @@ impl Visitor for CountingPass {
         &mut self.diagnostics
     }
 
-    fn visit_program(&mut self, program: &mut Program) -> () {
+    fn visit_program(&mut self, program: &mut Program) {
         // Walk the AST to count everything
         self.walk_program(program);
 
@@ -49,22 +55,22 @@ impl Visitor for CountingPass {
             .info(format!("Variables: {}", self.num_variables));
     }
 
-    fn visit_function(&mut self, function: &mut Function) -> () {
+    fn visit_function(&mut self, function: &mut Function) {
         self.num_functions += 1;
         self.walk_function(function);
     }
 
-    fn visit_statement(&mut self, statement: &mut Statement) -> () {
+    fn visit_statement(&mut self, statement: &mut Statement) {
         self.num_statements += 1;
         self.walk_statement(statement);
     }
 
-    fn visit_expression(&mut self, expression: &mut Expression) -> () {
+    fn visit_expression(&mut self, expression: &mut Expression) {
         self.num_expressions += 1;
         self.walk_expression(expression);
     }
 
-    fn visit_variable(&mut self, variable: &mut Variable) -> () {
+    fn visit_variable(&mut self, variable: &mut Variable) {
         self.num_variables += 1;
         self.walk_variable(variable);
     }

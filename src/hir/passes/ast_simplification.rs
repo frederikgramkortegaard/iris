@@ -9,6 +9,12 @@ pub struct ASTSimplificationPass {
     folded_nodes_count: u64,
 }
 
+impl Default for ASTSimplificationPass {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ASTSimplificationPass {
     pub fn new() -> Self {
         ASTSimplificationPass {

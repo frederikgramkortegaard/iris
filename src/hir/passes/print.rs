@@ -9,6 +9,12 @@ pub struct PrintPass {
     diagnostics: DiagnosticCollector,
 }
 
+impl Default for PrintPass {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PrintPass {
     pub fn new() -> Self {
         PrintPass {
@@ -58,7 +64,7 @@ impl Visitor for PrintPass {
         &mut self.diagnostics
     }
 
-    fn visit_program(&mut self, program: &mut Program) -> () {
+    fn visit_program(&mut self, program: &mut Program) {
         self.print(&format!(
             "Program ({} globals, {} functions)",
             program.globals.len(),
@@ -69,21 +75,21 @@ impl Visitor for PrintPass {
         self.dedent();
     }
 
-    fn visit_function(&mut self, function: &mut Function) -> () {
+    fn visit_function(&mut self, function: &mut Function) {
         self.print(&format!("Function: {}", function.name));
         self.indent();
         self.walk_function(function);
         self.dedent();
     }
 
-    fn visit_variable(&mut self, variable: &mut Variable) -> () {
+    fn visit_variable(&mut self, variable: &mut Variable) {
         self.print(&format!("Variable: {}", variable.name));
         self.indent();
         self.walk_variable(variable);
         self.dedent();
     }
 
-    fn visit_statement(&mut self, statement: &mut Statement) -> () {
+    fn visit_statement(&mut self, statement: &mut Statement) {
         match statement {
             Statement::Assignment { left, span, .. } => self.print(&format!(
                 "Assignment to: {} @ {}",
@@ -117,7 +123,7 @@ impl Visitor for PrintPass {
         self.dedent();
     }
 
-    fn visit_expression(&mut self, expression: &mut Expression) -> () {
+    fn visit_expression(&mut self, expression: &mut Expression) {
         match expression {
             Expression::Number { value: n, span, .. } => {
                 self.print(&format!("Number: {} @ {}", n, Self::format_span(span)))
