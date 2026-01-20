@@ -2,7 +2,7 @@ use crate::ast::Block;
 use crate::frontend::TokenType;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BaseType {
     F8,
     F16,
@@ -26,16 +26,9 @@ impl Type {
             // Auto is compatible with anything
             (Type::Base(BaseType::Auto), _) => true,
             (_, Type::Base(BaseType::Auto)) => true,
+
             // Otherwise check exact equality
-            (Type::Base(a), Type::Base(b)) => match (a, b) {
-                (BaseType::F8, BaseType::F8) => true,
-                (BaseType::F16, BaseType::F16) => true,
-                (BaseType::F32, BaseType::F32) => true,
-                (BaseType::F64, BaseType::F64) => true,
-                (BaseType::Bool, BaseType::Bool) => true,
-                (BaseType::Void, BaseType::Void) => true,
-                _ => false,
-            },
+            (Type::Base(a), Type::Base(b)) => a == b,
             (Type::PointerType(a), Type::PointerType(b)) => a.is_equal(b),
             _ => false,
         }

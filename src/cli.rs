@@ -6,6 +6,8 @@ use crate::hir::passes::print::PrintPass;
 use crate::hir::passes::typechecking::TypecheckingPass;
 use crate::hir::visitor::Visitor;
 use crate::mir::visitor::MirVisitor;
+use crate::mir::passes::print::MirPrintingPass;
+use crate::mir::passes::ssa::MirSSAPass;
 use std::fs;
 
 /// Helper function to print diagnostics from a HIR visitor
@@ -110,28 +112,23 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     // Lower HIR to MIR
     let mut lowering_pass = LoweringPass::new();
-    let mir = lowering_pass.lower(&mut program);
+    let mut mir = lowering_pass.lower(&mut program);
     print_diagnostics(&lowering_pass);
     if lowering_pass.diagnostics().has_errors() {
         return Err("Compilation failed due to errors".into());
     }
 
-//    // Convert MIR to SSA
-//    let mut ssa_pass = MirSSAPass::new();
-//    ssa_pass.convert(&mut mir);
-//    print_mir_diagnostics(&ssa_pass);
-//    if ssa_pass.diagnostics().has_errors() {
-//        return Err("Compilation failed due to errors".into());
-//    }
+    // Convert MIR to SSA
+    let mut ssa_pass = MirSSAPass::new();
+    ssa_pass.convert(&mut mir);
+    print_mir_diagnostics(&ssa_pass);
+    if ssa_pass.diagnostics().has_errors() {
+        return Err("Compilation failed due to errors".into());
+    }
 
-//   let mut mir_print_pass = MirPrintingPass::new();
-//   mir_print_pass.visit_program(&mut mir);
-//   print_mir_diagnostics(&mir_print_pass);
-//
-//   println!("\nMIR: Generated {} functions", mir.functions.len());
-//   for func in &mir.functions {
-//       println!("  Function: {} ({} blocks)", func.name, func.arena.len());
-//   }
+    let mut mir_print_pass = MirPrintingPass::new();
+    mir_print_pass.visit_program(&mut mir);
+    print_mir_diagnostics(&mir_print_pass);
 
 
     Ok(())
