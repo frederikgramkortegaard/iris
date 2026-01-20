@@ -1,7 +1,8 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::cfg;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{MirFunction, MirProgram};
+use crate::mir::{BlockId, Instruction, MirFunction, MirProgram, MirType, Opcode};
+use std::collections::HashSet;
 
 /// Converts MIR to SSA Form
 pub struct MirSSAPass {
@@ -51,10 +52,46 @@ impl MirVisitor for MirSSAPass {
             println!("{:?}; {:?}", b, s);
         }
         let dtree = cfg::compute_dominator_tree(function, &dominators, &successors);
-        println!("Dominator Tree (map)\n{:?}",dtree);
+        println!("Dominator Tree (map)\n{:?}", dtree);
 
         let dfront = cfg::compute_dominator_frontier(&dtree, &predecessors);
         println!("Dominator Frontier (set)\n{:?}", dfront);
+        let empty = HashSet::new();
+
+        // Insert Phi Nodes
+        for (reg, definers) in function.definitions.iter() {
+            //
+            // Single definition, thus never a need for phi nodes
+            if definers.len() < 2 {
+                continue;
+            }
+
+            let mut has_phi: HashSet<BlockId> = HashSet::new();
+
+            let mut worklist: Vec<BlockId> = definers.iter().copied().collect();
+            while let Some(block) = worklist.pop() {
+                for &frontier in dfront.get(&block).unwrap_or(&empty) {
+                    if !has_phi.contains(&frontier) {
+                        function
+                            .arena
+                            .get_mut(frontier)
+                            .phi_nodes
+                            .push(Instruction {
+                                dest: *reg,
+                                op: Opcode::Phi,
+                                typ: MirType::Void, //@NOTE : @TODO for Phi nodes, the typ does not
+                                //matter, so we're just setting it to void for
+                                //now.
+                                args: vec![],
+                            });
+
+                        println!("Inserting Phi for r{:?} in Block {:?}", reg, frontier);
+                        has_phi.insert(frontier);
+                        worklist.push(frontier);
+                    }
+                }
+            }
+        }
 
     }
 }

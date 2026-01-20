@@ -53,6 +53,9 @@ pub trait MirVisitor {
         for instruction in &mut block.instructions {
             self.visit_instruction(instruction);
         }
+        for phi in &mut block.phi_nodes {
+            self.visit_instruction(phi);
+        }
         self.visit_terminator(&mut block.terminator);
         Self::Output::default()
     }

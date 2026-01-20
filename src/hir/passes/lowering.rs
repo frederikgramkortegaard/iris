@@ -91,7 +91,11 @@ impl LoweringPass {
     /// Add an instruction to the current basic block
     fn add_instruction(&mut self, inst: Instruction) {
         let block_id = self.current_block.expect("No current block");
+        let func = self.current_function.as_mut().expect("No current function");
+        func.definitions.entry(inst.dest).or_default().insert(block_id);
         self.add_instruction_to_block(block_id, inst);
+
+        
     }
 
     /// Add an instruction to a specific basic block

@@ -1,6 +1,7 @@
+pub mod cfg;
 pub mod passes;
 pub mod visitor;
-pub mod cfg;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug)]
 pub enum Opcode {
@@ -20,7 +21,7 @@ pub enum Opcode {
     Gt,
     Ge,
 
-    Phi
+    Phi,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,7 +50,7 @@ pub enum Operand {
     ImmF64(f64),
     ImmBool(bool),
     Label(String),
-    Pair(BlockId, Box<Operand>) // Used for Phi nodes
+    Pair(BlockId, Box<Operand>), // Used for Phi nodes
 }
 
 /// Type-safe block identifier (index into BlockArena)
@@ -78,7 +79,7 @@ pub struct Instruction {
 pub struct BasicBlock {
     pub instructions: Vec<Instruction>,
     pub terminator: Terminator,
-    pub phi_nodes: Vec<Instruction>
+    pub phi_nodes: Vec<Instruction>,
 }
 
 #[derive(Debug)]
@@ -157,6 +158,7 @@ pub struct MirFunction {
     pub return_type: MirType,
     pub arena: BlockArena,
     pub entry: BlockId,
+    pub definitions: HashMap<Reg, HashSet<BlockId>>,
 }
 
 impl MirFunction {
@@ -177,6 +179,7 @@ impl MirFunction {
             return_type,
             arena,
             entry,
+            definitions: HashMap::new(),
         }
     }
 
