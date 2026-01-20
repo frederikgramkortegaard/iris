@@ -6,6 +6,7 @@ pub type Predecessors = HashMap<BlockId, Vec<BlockId>>;
 pub type Successors = HashMap<BlockId, Vec<BlockId>>;
 pub type DominatorSets = HashMap<BlockId, HashSet<BlockId>>;
 pub type DominatorTree = HashMap<BlockId, BlockId>;
+pub type DominatorFrontier = HashMap<BlockId, HashSet<BlockId>>;
 
 pub fn compute_cfg(function: &MirFunction) -> (Predecessors, Successors) {
     let mut predecessors: Predecessors = HashMap::new();
@@ -153,6 +154,30 @@ pub fn compute_dominators(function: &MirFunction, predecessors: &Predecessors) -
         }
     }
     dom
+}
+
+// @TODO write intuition
+pub fn compute_dominator_frontier(
+    dtree: &DominatorTree,
+    predecessors: &Predecessors,
+) -> DominatorFrontier {
+    let mut dfront: DominatorFrontier = DominatorFrontier::new();
+
+    for (block, preds) in predecessors {
+        if preds.len() < 2 {
+            continue;
+        }
+
+        for &pred in preds {
+            let mut runner = pred;
+            while runner != dtree[block] {
+                dfront.entry(runner).or_default().insert(*block);
+                runner = dtree[&runner];
+            }
+        }
+    }
+
+    dfront
 }
 
 pub fn compute_dominator_tree(

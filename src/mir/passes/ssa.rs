@@ -50,7 +50,11 @@ impl MirVisitor for MirSSAPass {
         for (b, s) in &dominators {
             println!("{:?}; {:?}", b, s);
         }
-        let _idom = cfg::compute_dominator_tree(function, &dominators, &successors);
-        println!("Dominator Tree (map)\n{:?}",_idom);
+        let dtree = cfg::compute_dominator_tree(function, &dominators, &successors);
+        println!("Dominator Tree (map)\n{:?}",dtree);
+
+        let dfront = cfg::compute_dominator_frontier(&dtree, &predecessors);
+        println!("Dominator Frontier (set)\n{:?}", dfront);
+
     }
 }

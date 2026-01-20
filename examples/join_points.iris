@@ -1,0 +1,47 @@
+fn sign(x: f64) -> f64 {
+    var result: f64 = 0
+    if (x < 0) {
+        result = -1
+    } else {
+        if (x > 0) {
+            result = 1
+        } else {
+            result = 0
+        }
+    }
+    return result
+}
+
+fn abs_v2(x: f64) -> f64 {
+    var val: f64 = 0
+    if (x < 0) {
+        val = 0 - x
+    } else {
+        val = x
+    }
+    return val
+}
+
+fn clamp_v2(value: f64, low: f64, high: f64) -> f64 {
+    var result: f64 = 0
+    if (value < low) {
+        result = low
+    } else {
+        if (value > high) {
+            result = high
+        } else {
+            result = value
+        }
+    }
+    return result
+}
+
+fn fib_step(a: f64, b: f64, n: f64) -> f64 {
+    var result: f64 = 0
+    if (n < 1) {
+        result = a
+    } else {
+        result = a + b
+    }
+    return result
+}
