@@ -103,15 +103,19 @@ impl MirSSAPass {
                     }
                 }
             }
-            if let Terminator::Ret {
-                value: Some(Operand::Reg(ref mut r)),
-            } = block.terminator
-            {
+
+            let op: Option<&mut Operand> = match &mut block.terminator {
+                Terminator::Ret { value: Some(op) } => Some(op),
+
+                Terminator::BrIf { cond, .. } => Some(cond),
+                _ => None,
+            };
+
+            if let Some(Operand::Reg(r)) = op {
                 if let Some(current) = stack.get(r).and_then(|v| v.last()) {
                     *r = *current;
                 }
             }
-
             // Fill in phi nodes in successor blocks
             let empty: Vec<Reg> = vec![];
             for &succ in successors.get(&entry).into_iter().flatten() {
