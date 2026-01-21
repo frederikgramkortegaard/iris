@@ -159,6 +159,7 @@ pub struct MirFunction {
     pub arena: BlockArena,
     pub entry: BlockId,
     pub definitions: HashMap<Reg, HashSet<BlockId>>,
+    pub next_free_reg: Reg,
 }
 
 impl MirFunction {
@@ -180,6 +181,7 @@ impl MirFunction {
             arena,
             entry,
             definitions: HashMap::new(),
+            next_free_reg: 0,
         }
     }
 

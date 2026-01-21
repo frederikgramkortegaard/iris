@@ -200,7 +200,8 @@ impl Visitor for LoweringPass {
         self.pop_scope();
 
         // Take the function and store it
-        if let Some(func) = self.current_function.take() {
+        if let Some(mut func) = self.current_function.take() {
+            func.next_free_reg = self.register_cursor;
             self.functions.push(func);
         }
         self.current_block = None;
