@@ -1,0 +1,11 @@
+fn main() -> f64 {
+    var x = 5
+    var y = 10
+    var z = x + y
+
+    var dead1 = 100
+    var dead2 = dead1 + 1
+    var dead3 = dead2 * 2
+
+    return z
+}

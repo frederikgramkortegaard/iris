@@ -1,10 +1,18 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
+use crate::mir::visitor::MirVisitor;
 use crate::mir::MirProgram;
+use crate::mir::{BasicBlock, BlockId, MirFunction, MirType, Opcode, Operand, Reg, Terminator};
+use std::collections::{HashMap, HashSet};
+
+type InstructionIndex = usize;
 
 /// Dead Code Elimination pass
 pub struct MirDCEPass {
     diagnostics: DiagnosticCollector,
+    defmap: HashMap<Reg, (BlockId, InstructionIndex)>,
+    live: HashSet<Reg>,
+    worklist: Vec<Reg>,
 }
 
 impl Default for MirDCEPass {
@@ -17,12 +25,135 @@ impl MirDCEPass {
     pub fn new() -> Self {
         MirDCEPass {
             diagnostics: DiagnosticCollector::new(),
+            defmap: HashMap::new(),
+            live: HashSet::new(),
+            worklist: vec![],
+        }
+    }
+
+    fn has_side_effects(&self, op: &Opcode) -> bool {
+        matches!(op, Opcode::Call)
+    }
+
+    fn propagate_worklist(&mut self, function: &MirFunction) {
+        while let Some(reg) = self.worklist.pop() {
+            if let Some((block_id, idx)) = self.defmap.get(&reg) {
+                let inst = &function.arena.get(*block_id).instructions[*idx];
+                for arg in &inst.args {
+                    if let Operand::Reg(r) = arg {
+                        if self.live.insert(*r) {
+                            self.worklist.push(*r);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    fn sweep(&self, program: &mut MirProgram) {
+        for function in &mut program.functions {
+            for block in &mut function.arena.blocks {
+                // @NOTE : All of this `keep` stuff is just so we can println! every time something
+                // is not retained, we should probably wrap this in a DEBUG flag or something
+                block.instructions.retain(|inst| {
+                    let keep = self.live.contains(&inst.dest);
+                    if !keep {
+                        println!("Removing Instruction {:?} from block", inst);
+                    }
+                    keep
+                });
+            }
         }
     }
 }
 
+// The visitor is used to mark liveness and build the defmap
+impl MirVisitor for MirDCEPass {
+    type Output = ();
+
+    fn diagnostics(&self) -> &DiagnosticCollector {
+        &self.diagnostics
+    }
+
+    fn diagnostics_mut(&mut self) -> &mut DiagnosticCollector {
+        &mut self.diagnostics
+    }
+
+    fn visit_function(&mut self, function: &mut MirFunction) -> Self::Output {
+        self.defmap.clear();
+        self.live.clear();
+        self.worklist.clear();
+
+        self.walk_function(function);
+        println!(
+            "Function: {}:\ndefmap: {:?}\nlive: {:?}\nworklist: {:?}\n\n",
+            function.name, self.defmap, self.live, self.worklist
+        );
+
+        self.propagate_worklist(function);
+
+        println!(
+            "Function: {}:\ndefmap: {:?}\nlive: {:?}\nworklist: {:?}\n\n",
+            function.name, self.defmap, self.live, self.worklist
+        );
+    }
+
+    fn visit_basicblock(&mut self, block_id: BlockId, block: &mut BasicBlock) -> Self::Output {
+        for (i, instruction) in block.instructions.iter().enumerate() {
+            self.defmap.insert(instruction.dest, (block_id, i));
+
+            // If the instruction has (or could have) side effects, we assume the dest is live,
+            // because the defining line itself can't be known to be safe to delete at this point
+            if self.has_side_effects(&instruction.op) {
+                self.live.insert(instruction.dest);
+
+                // Because of this, all of the arguments must also be live
+                for arg in &instruction.args {
+                    if let Operand::Reg(r) = arg {
+                        // If the value does NOT exist in live, we add it to the worklist. If it
+                        // already existed there, it means its the first time we're marking R as
+                        // live and thus we should process it
+                        if self.live.insert(*r) {
+                            self.worklist.push(*r);
+                        }
+                    }
+                }
+            }
+        }
+
+        self.walk_basicblock(block);
+    }
+
+    fn visit_terminator(&mut self, term: &mut Terminator) -> Self::Output {
+        match &term {
+            Terminator::Ret {
+                value: Some(Operand::Reg(r)),
+            } => {
+                if self.live.insert(*r) {
+                    self.worklist.push(*r);
+                }
+            }
+            Terminator::BrIf {
+                cond: Operand::Reg(r),
+                ..
+            } => {
+                if self.live.insert(*r) {
+                    self.worklist.push(*r);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn visit_param(&mut self, reg: Reg, _type: MirType) -> Self::Output {
+        // Parameters are special, they are ALWAYS considered live @TODO : Maybe it would be
+        // possible to do some weird optimization here
+        self.live.insert(reg);
+    }
+}
 impl MirPass for MirDCEPass {
-    fn run(&mut self, _program: &mut MirProgram) {
+    fn run(&mut self, program: &mut MirProgram) {
+        self.visit_program(program);
+        self.sweep(program);
     }
 
     fn diagnostics(&self) -> &DiagnosticCollector {
