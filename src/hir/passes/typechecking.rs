@@ -1,4 +1,5 @@
 use crate::ast::{Expression, Program, Statement};
+use crate::hir::passes::HirPass;
 use crate::hir::visitor::{DiagnosticCollector, Visitor};
 use crate::types::{BaseType, Function, Scope, Type, Variable};
 use std::cell::RefCell;
@@ -464,5 +465,15 @@ impl Visitor for TypecheckingPass {
                 }
             }
         }
+    }
+}
+
+impl HirPass for TypecheckingPass {
+    fn run(&mut self, program: &mut Program) {
+        self.visit_program(program);
+    }
+
+    fn diagnostics(&self) -> &DiagnosticCollector {
+        &self.diagnostics
     }
 }

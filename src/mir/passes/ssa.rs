@@ -1,5 +1,6 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::cfg;
+use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::{
     BlockId, Instruction, MirFunction, MirProgram, MirType, Opcode, Operand, Reg, Terminator,
@@ -248,5 +249,15 @@ impl MirVisitor for MirSSAPass {
 
         let original_registers = Self::insert_phi_nodes(function, &dfront);
         Self::rename_variables_to_ssa(function, &dtree, &successors, &original_registers);
+    }
+}
+
+impl MirPass for MirSSAPass {
+    fn run(&mut self, program: &mut MirProgram) {
+        self.visit_program(program);
+    }
+
+    fn diagnostics(&self) -> &DiagnosticCollector {
+        &self.diagnostics
     }
 }

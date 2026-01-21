@@ -1,4 +1,5 @@
 use crate::diagnostics::DiagnosticCollector;
+use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::{BasicBlock, BlockId, Instruction, MirFunction, MirProgram, Operand, Terminator};
 
@@ -142,5 +143,15 @@ impl MirVisitor for MirPrintingPass {
 
     fn visit_operand(&mut self, _operand: &mut Operand) -> Self::Output {
         // Operands are printed inline, no need for separate visit
+    }
+}
+
+impl MirPass for MirPrintingPass {
+    fn run(&mut self, program: &mut MirProgram) {
+        self.visit_program(program);
+    }
+
+    fn diagnostics(&self) -> &DiagnosticCollector {
+        &self.diagnostics
     }
 }

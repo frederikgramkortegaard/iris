@@ -12,7 +12,8 @@ Source -> Frontend -> HIR -> MIR -> LIR -> Target
                       |          - Dominator Trees
                       |          - Dominance Frontiers
                       |          - SSA Conversion
-                      |          - Constant Propagation
+                      |          - Constant Propagation (SCCP)
+                      |          - Constant Folding
                       |          - Dead Code Elimination
                       |
                       +-- Passes
@@ -35,7 +36,8 @@ Source -> Frontend -> HIR -> MIR -> LIR -> Target
 - **Dominance Frontier** calculation for phi placement
 
 ### Optimization Passes
-- **Constant Propagation** - tracks constant values through SSA form
+- **Constant Propagation (SCCP)** - tracks constant values through SSA form
+- **Constant Folding** - evaluates constant expressions at compile time
 - **Copy Propagation** - eliminates redundant copies
 
 ### Visitor Pattern

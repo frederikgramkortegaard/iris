@@ -1,5 +1,6 @@
 use crate::ast::{Expression, Program, Statement};
 use crate::frontend::TokenType;
+use crate::hir::passes::HirPass;
 use crate::hir::visitor::{DiagnosticCollector, Visitor};
 use crate::mir::{
     BasicBlock, BlockId, Instruction, MirFunction, MirProgram, MirType, Opcode, Operand, Reg,
@@ -505,5 +506,15 @@ impl Visitor for LoweringPass {
                 Some(Operand::Reg(dest))
             }
         }
+    }
+}
+
+impl HirPass for LoweringPass {
+    fn run(&mut self, program: &mut Program) {
+        self.visit_program(program);
+    }
+
+    fn diagnostics(&self) -> &DiagnosticCollector {
+        &self.diagnostics
     }
 }

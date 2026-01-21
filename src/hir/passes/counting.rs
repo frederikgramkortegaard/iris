@@ -1,6 +1,7 @@
 use crate::ast::{Expression, Program, Statement};
-use crate::types::{Function, Variable};
+use crate::hir::passes::HirPass;
 use crate::hir::visitor::{DiagnosticCollector, Visitor};
+use crate::types::{Function, Variable};
 
 /// Example visitor that counts different types of nodes in the AST
 pub struct CountingPass {
@@ -73,5 +74,15 @@ impl Visitor for CountingPass {
     fn visit_variable(&mut self, variable: &mut Variable) {
         self.num_variables += 1;
         self.walk_variable(variable);
+    }
+}
+
+impl HirPass for CountingPass {
+    fn run(&mut self, program: &mut Program) {
+        self.visit_program(program);
+    }
+
+    fn diagnostics(&self) -> &DiagnosticCollector {
+        &self.diagnostics
     }
 }

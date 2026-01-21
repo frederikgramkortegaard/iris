@@ -1,4 +1,5 @@
 use crate::ast::{Expression, Program, Statement};
+use crate::hir::passes::HirPass;
 use crate::hir::visitor::{DiagnosticCollector, Visitor};
 use crate::span::Span;
 use crate::types::{Function, Variable};
@@ -161,5 +162,15 @@ impl Visitor for PrintPass {
         self.indent();
         self.walk_expression(expression);
         self.dedent();
+    }
+}
+
+impl HirPass for PrintPass {
+    fn run(&mut self, program: &mut Program) {
+        self.visit_program(program);
+    }
+
+    fn diagnostics(&self) -> &DiagnosticCollector {
+        &self.diagnostics
     }
 }

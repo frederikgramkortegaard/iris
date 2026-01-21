@@ -1,6 +1,7 @@
 use crate::diagnostics::DiagnosticCollector;
+use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{Instruction, MirFunction, Opcode, Operand, Reg};
+use crate::mir::{Instruction, MirFunction, MirProgram, Opcode, Operand, Reg};
 use std::collections::HashMap;
 
 pub struct MirConstPropPass {
@@ -78,5 +79,15 @@ impl MirVisitor for MirConstPropPass {
                 .or_insert(instruction.args[0].clone());
             println!("Register r{} is being assigned as a constant with value{:?}, adding it to `constant_map`", instruction.dest, instruction.args[0].clone());
         }
+    }
+}
+
+impl MirPass for MirConstPropPass {
+    fn run(&mut self, program: &mut MirProgram) {
+        self.visit_program(program);
+    }
+
+    fn diagnostics(&self) -> &DiagnosticCollector {
+        &self.diagnostics
     }
 }
