@@ -110,7 +110,7 @@ impl MirVisitor for MirDCEPass {
                 for arg in &instruction.args {
                     if let Operand::Reg(r) = arg {
                         // If the value does NOT exist in live, we add it to the worklist. If it
-                        // already existed there, it means its the first time we're marking R as
+                        // didnt exist there, it means its the first time we're marking R as
                         // live and thus we should process it
                         if self.live.insert(*r) {
                             self.worklist.push(*r);
