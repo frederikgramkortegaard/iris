@@ -47,6 +47,10 @@ impl MirSSAPass {
         let mut counter: HashMap<Reg, usize> = HashMap::new();
         let mut stack: HashMap<Reg, Vec<usize>> = HashMap::new();
 
+        for (param_reg, _type) in &function.params {
+            stack.entry(*param_reg).or_default().push(*param_reg);
+        }
+
         // Inner method for actually doing the recursive renaming
         fn rename(
             counter: &mut HashMap<Reg, usize>,

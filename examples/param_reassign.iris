@@ -1,0 +1,22 @@
+fn clamp_to_zero(x: f64) -> f64 {
+    if (x < 0) {
+        x = 0
+    }
+    return x
+}
+
+fn abs_param(x: f64) -> f64 {
+    if (x < 0) {
+        x = 0 - x
+    }
+    return x
+}
+
+fn double_or_zero(n: f64, flag: f64) -> f64 {
+    if (flag < 1) {
+        n = 0
+    } else {
+        n = n + n
+    }
+    return n
+}

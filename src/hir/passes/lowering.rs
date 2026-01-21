@@ -92,10 +92,11 @@ impl LoweringPass {
     fn add_instruction(&mut self, inst: Instruction) {
         let block_id = self.current_block.expect("No current block");
         let func = self.current_function.as_mut().expect("No current function");
-        func.definitions.entry(inst.dest).or_default().insert(block_id);
+        func.definitions
+            .entry(inst.dest)
+            .or_default()
+            .insert(block_id);
         self.add_instruction_to_block(block_id, inst);
-
-        
     }
 
     /// Add an instruction to a specific basic block
@@ -184,7 +185,22 @@ impl Visitor for LoweringPass {
         let return_type = self.convert_type(&function.return_type);
 
         // Create MIR function and set as current
-        let mir_func = MirFunction::new(function.name.clone(), params, return_type);
+        let mut mir_func = MirFunction::new(function.name.clone(), params, return_type);
+
+        // @NOTE : This should be done in the previous parameter loop but that would require too
+        // many changes for now, so we just do it here.
+        //
+        // Where we're doing is initializing the parameter registers into the map in the
+        // MirFunction which stores where a register was originally defined, aka. where it was
+        // allocated the first time.  We use this for SSA Renaming later
+        for (reg, _type) in &mir_func.params {
+            mir_func
+                .definitions
+                .entry(*reg)
+                .or_default()
+                .insert(mir_func.entry);
+        }
+
         let entry_block = mir_func.entry;
         self.current_function = Some(mir_func);
         self.current_block = Some(entry_block);
