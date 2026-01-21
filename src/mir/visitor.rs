@@ -1,4 +1,4 @@
-use crate::mir::{BasicBlock, BlockId, Instruction, MirFunction, MirProgram, Operand, Terminator};
+use crate::mir::{BasicBlock, BlockId, Instruction, MirFunction, MirProgram, MirType, Operand, Reg, Terminator};
 
 // Re-export DiagnosticCollector for convenience
 pub use crate::diagnostics::DiagnosticCollector;
@@ -32,6 +32,11 @@ pub trait MirVisitor {
     }
 
     fn walk_function(&mut self, function: &mut MirFunction) -> Self::Output {
+        // Visit parameters
+        for (reg, typ) in function.params.clone() {
+            self.visit_param(reg, typ);
+        }
+
         // Iterate over all blocks in the arena
         let block_count = function.arena.len();
         for i in 0..block_count {
@@ -41,6 +46,15 @@ pub trait MirVisitor {
             let block = function.arena.get_mut(block_id);
             self.visit_basicblock(block_id, block);
         }
+        Self::Output::default()
+    }
+
+    // Param
+    fn visit_param(&mut self, reg: Reg, typ: MirType) -> Self::Output {
+        self.walk_param(reg, typ)
+    }
+
+    fn walk_param(&mut self, _reg: Reg, _typ: MirType) -> Self::Output {
         Self::Output::default()
     }
 

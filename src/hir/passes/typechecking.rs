@@ -1,6 +1,6 @@
 use crate::ast::{Expression, Program, Statement};
-use crate::types::{BaseType, Function, Scope, Type, Variable};
 use crate::hir::visitor::{DiagnosticCollector, Visitor};
+use crate::types::{BaseType, Function, Scope, Type, Variable};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -79,12 +79,16 @@ impl Visitor for TypecheckingPass {
         // Add all global variables to the global scope
         for global in &mut program.globals {
             self.visit_variable(global);
-            global_scope.symbols.insert(global.name.clone(), global.clone());
+            global_scope
+                .symbols
+                .insert(global.name.clone(), global.clone());
         }
 
         // Add all function declarations to the global scope
         for function in &program.functions {
-            global_scope.functions.insert(function.name.clone(), function.clone());
+            global_scope
+                .functions
+                .insert(function.name.clone(), function.clone());
         }
 
         // Push global scope to stack
@@ -180,15 +184,16 @@ impl Visitor for TypecheckingPass {
             Statement::Expression { expression, .. } => {
                 self.visit_expression(expression);
             }
-            Statement::Return { expression: maybe_expr, .. } => {
+            Statement::Return {
+                expression: maybe_expr,
+                ..
+            } => {
                 let expr_type = match maybe_expr {
                     Some(expr) => self.visit_expression(expr)?,
                     None => Type::Base(BaseType::Void),
                 };
 
-                let Some(expected_type) = self.current_function_return_type.clone() else {
-                    return None;
-                };
+                let expected_type = self.current_function_return_type.clone()?;
 
                 if !expr_type.is_equal(&expected_type) {
                     self.diagnostics_mut().error(format!(
@@ -205,7 +210,9 @@ impl Visitor for TypecheckingPass {
                 self.visit_block(b);
                 self.scope_stack.pop();
             }
-            Statement::Assignment { left, typ, right, .. } => {
+            Statement::Assignment {
+                left, typ, right, ..
+            } => {
                 match typ.as_ref() {
                     // Declaration: check current scope only for redeclaration
                     Some(t) => {
@@ -316,7 +323,9 @@ impl Visitor for TypecheckingPass {
                     self.scope_stack.pop();
                 }
             }
-            Statement::While { condition, body, .. } => {
+            Statement::While {
+                condition, body, ..
+            } => {
                 // Check that condition is bool
                 if let Some(cond_type) = self.visit_expression(condition) {
                     if !matches!(cond_type, Type::Base(BaseType::Bool)) {
@@ -344,7 +353,11 @@ impl Visitor for TypecheckingPass {
 
     fn visit_expression(&mut self, expression: &mut Expression) -> Self::Output {
         match expression {
-            Expression::Variable { name: identifier, typ, .. } => {
+            Expression::Variable {
+                name: identifier,
+                typ,
+                ..
+            } => {
                 if let Some(var) = self.find_variable(identifier) {
                     *typ = Some(var.typ.clone());
                     Some(var.typ)
@@ -380,7 +393,13 @@ impl Visitor for TypecheckingPass {
                     }
                 }
             }
-            Expression::BinaryOp { left, op, right, typ, .. } => {
+            Expression::BinaryOp {
+                left,
+                op,
+                right,
+                typ,
+                ..
+            } => {
                 let left_type = self.visit_expression(left)?;
                 let right_type = self.visit_expression(right)?;
 
@@ -398,7 +417,12 @@ impl Visitor for TypecheckingPass {
                     }
                 }
             }
-            Expression::Call { identifier, args, typ, .. } => {
+            Expression::Call {
+                identifier,
+                args,
+                typ,
+                ..
+            } => {
                 if let Some(func) = &mut self.find_function(identifier) {
                     // Check argument count
                     if func.args.len() != args.len() {

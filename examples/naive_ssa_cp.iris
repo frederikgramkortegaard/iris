@@ -1,0 +1,5 @@
+fn simple() -> f64 {
+
+    var x : f64 = 2
+    var z : f64 = x
+  }

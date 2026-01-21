@@ -5,9 +5,10 @@ use crate::hir::passes::lowering::LoweringPass;
 use crate::hir::passes::print::PrintPass;
 use crate::hir::passes::typechecking::TypecheckingPass;
 use crate::hir::visitor::Visitor;
-use crate::mir::visitor::MirVisitor;
+use crate::mir::passes::const_prop::MirConstPropPass;
 use crate::mir::passes::print::MirPrintingPass;
 use crate::mir::passes::ssa::MirSSAPass;
+use crate::mir::visitor::MirVisitor;
 use std::fs;
 
 /// Helper function to print diagnostics from a HIR visitor
@@ -126,10 +127,15 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Err("Compilation failed due to errors".into());
     }
 
+    let mut mir_const_prop_pass = MirConstPropPass::new();
+    mir_const_prop_pass.visit_program(&mut mir);
+    print_mir_diagnostics(&mir_const_prop_pass);
+    if mir_const_prop_pass.diagnostics().has_errors() {
+        return Err("Compilation failed due to errors".into());
+    }
     let mut mir_print_pass = MirPrintingPass::new();
     mir_print_pass.visit_program(&mut mir);
     print_mir_diagnostics(&mir_print_pass);
-
 
     Ok(())
 }

@@ -3,7 +3,7 @@ pub mod passes;
 pub mod visitor;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Opcode {
     Add,
     Sub,
