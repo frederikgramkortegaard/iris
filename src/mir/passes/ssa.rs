@@ -161,7 +161,7 @@ impl MirSSAPass {
             }
         }
 
-        let entry = function.entry;
+        let entry = function.virtual_entry;
         rename(
             &mut counter,
             &mut stack,
@@ -233,6 +233,14 @@ impl MirVisitor for MirSSAPass {
     }
 
     fn visit_function(&mut self, function: &mut MirFunction) -> Self::Output {
+        for (param_reg, _) in &function.params {
+            function
+                .definitions
+                .entry(*param_reg)
+                .or_default()
+                .insert(function.virtual_entry);
+        }
+
         println!("Function: '{}'", function.name);
         let (predecessors, successors) = cfg::compute_cfg(function);
         let dominators = cfg::compute_dominators(function, &predecessors);

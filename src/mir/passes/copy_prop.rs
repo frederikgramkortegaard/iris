@@ -1,7 +1,9 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{Instruction, MirFunction, MirProgram, Opcode, Operand, Reg, Terminator};
+use crate::mir::{
+    BasicBlock, BlockId, Instruction, MirFunction, MirProgram, Opcode, Operand, Reg, Terminator,
+};
 use std::collections::HashMap;
 
 pub struct MirCopyPropPass {
@@ -37,6 +39,27 @@ impl MirVisitor for MirCopyPropPass {
 
     fn visit_function(&mut self, function: &mut MirFunction) -> Self::Output {
         self.walk_function(function);
+
+        // Before we can do proper copy-prop for phi nodes, we need to fully fill out the copy map.
+        // Thus we have to do it after we've already visited all blocks and functions.
+        for block in &mut function.arena.blocks {
+            for phi in &mut block
+                .phi_nodes
+                .iter_mut()
+                .filter(|inst| inst.op == Opcode::Phi)
+            {
+                for arg in &mut phi.args {
+                    if let Operand::Pair(_, op) = arg {
+                        if let Operand::Reg(src) = op.as_mut() {
+                            if let Some(&r) = self.copy_map.get(src) {
+                                println!("Replacing (phi) register r{} with constant {:?}", src, r);
+                                *src = r; // mutate the register inside, keep the Pair
+                            }
+                        }
+                    }
+                }
+            }
+        }
         self.copy_map.clear();
     }
 

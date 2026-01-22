@@ -10,7 +10,9 @@ use crate::mir::passes::dce::MirDCEPass;
 use crate::mir::passes::gvn::MirGVNPass;
 use crate::mir::passes::print::MirPrintingPass;
 use crate::mir::passes::ssa::MirSSAPass;
+use crate::mir::passes::tailcall::MirTailCallPass;
 use crate::pass::RunPass;
+
 use std::fs;
 
 /// Runs the compiler CLI with the given command-line arguments.
@@ -56,17 +58,22 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     // Run MIR passes
     mir.run_pass(&mut MirPrintingPass::with_message("Original"))?
+        .run_pass(&mut MirTailCallPass::new())?
+        .run_pass(&mut MirPrintingPass::with_message("TailCall"))?
         .run_pass(&mut MirSSAPass::new())?
         .run_pass(&mut MirPrintingPass::with_message("SSA"))?;
 
+
     for _ in 0..3 {
         mir.run_pass(&mut MirConstPropPass::new())?
-        .run_pass(&mut MirGVNPass::new())?
-        .run_pass(&mut MirCopyPropPass::new())?
-        .run_pass(&mut MirDCEPass::new())?;
+            .run_pass(&mut MirGVNPass::new())?
+            .run_pass(&mut MirCopyPropPass::new())?
+            .run_pass(&mut MirDCEPass::new())?;
     }
 
-    _ = mir.run_pass(&mut MirPrintingPass::with_message("After 3 Iterations of Optim"));
+    _ = mir.run_pass(&mut MirPrintingPass::with_message(
+        "After 3 Iterations of Optim",
+    ));
 
     Ok(())
 }

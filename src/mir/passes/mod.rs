@@ -1,4 +1,5 @@
 pub mod const_prop;
+pub mod tailcall;
 pub mod copy_prop;
 pub mod dce;
 pub mod gvn;

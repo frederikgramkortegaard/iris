@@ -66,11 +66,12 @@ pub trait MirVisitor {
     }
 
     fn walk_basicblock(&mut self, block: &mut BasicBlock) -> Self::Output {
-        for instruction in &mut block.instructions {
-            self.visit_instruction(instruction);
-        }
+        // Phi nodes come first in SSA form
         for phi in &mut block.phi_nodes {
             self.visit_instruction(phi);
+        }
+        for instruction in &mut block.instructions {
+            self.visit_instruction(instruction);
         }
         self.visit_terminator(&mut block.terminator);
         Self::Output::default()

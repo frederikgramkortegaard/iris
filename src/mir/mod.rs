@@ -67,7 +67,7 @@ impl BlockId {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Instruction {
     pub dest: Reg,
     pub op: Opcode,
@@ -158,19 +158,27 @@ pub struct MirFunction {
     pub return_type: MirType,
     pub arena: BlockArena,
     pub entry: BlockId,
+    pub virtual_entry: BlockId,
     pub definitions: HashMap<Reg, HashSet<BlockId>>,
     pub next_free_reg: Reg,
 }
 
 impl MirFunction {
-    /// Create a new function with an entry block
+    /// Create a new function with an entry block and virtual entry
     pub fn new(name: String, params: Vec<(Reg, MirType)>, return_type: MirType) -> Self {
         let mut arena = BlockArena::new();
 
-        // Create entry block
+        // Create real entry block (where code goes)
         let entry = arena.alloc(BasicBlock {
             instructions: Vec::new(),
             terminator: Terminator::Unreachable,
+            phi_nodes: Vec::new(),
+        });
+
+        // Create virtual entry block (for CFG purposes, branches to real entry)
+        let virtual_entry = arena.alloc(BasicBlock {
+            instructions: Vec::new(),
+            terminator: Terminator::Br { target: entry },
             phi_nodes: Vec::new(),
         });
 
@@ -180,6 +188,7 @@ impl MirFunction {
             return_type,
             arena,
             entry,
+            virtual_entry,
             definitions: HashMap::new(),
             next_free_reg: 0,
         }

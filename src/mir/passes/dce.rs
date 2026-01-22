@@ -7,10 +7,13 @@ use std::collections::{HashMap, HashSet};
 
 type InstructionIndex = usize;
 
+type PhiIndex = usize;
+
 /// Dead Code Elimination pass
 pub struct MirDCEPass {
     diagnostics: DiagnosticCollector,
     defmap: HashMap<Reg, (BlockId, InstructionIndex)>,
+    phi_defmap: HashMap<Reg, (BlockId, PhiIndex)>,
     live: HashSet<Reg>,
     worklist: Vec<Reg>,
 }
@@ -26,6 +29,7 @@ impl MirDCEPass {
         MirDCEPass {
             diagnostics: DiagnosticCollector::new(),
             defmap: HashMap::new(),
+            phi_defmap: HashMap::new(),
             live: HashSet::new(),
             worklist: vec![],
         }
@@ -37,12 +41,26 @@ impl MirDCEPass {
 
     fn propagate_worklist(&mut self, function: &MirFunction) {
         while let Some(reg) = self.worklist.pop() {
+            // Check regular instructions
             if let Some((block_id, idx)) = self.defmap.get(&reg) {
                 let inst = &function.arena.get(*block_id).instructions[*idx];
                 for arg in &inst.args {
                     if let Operand::Reg(r) = arg {
                         if self.live.insert(*r) {
                             self.worklist.push(*r);
+                        }
+                    }
+                }
+            }
+            // Check phi nodes
+            if let Some((block_id, idx)) = self.phi_defmap.get(&reg) {
+                let phi = &function.arena.get(*block_id).phi_nodes[*idx];
+                for arg in &phi.args {
+                    if let Operand::Pair(_, inner) = arg {
+                        if let Operand::Reg(r) = inner.as_ref() {
+                            if self.live.insert(*r) {
+                                self.worklist.push(*r);
+                            }
                         }
                     }
                 }
@@ -78,6 +96,7 @@ impl MirVisitor for MirDCEPass {
 
     fn visit_function(&mut self, function: &mut MirFunction) -> Self::Output {
         self.defmap.clear();
+        self.phi_defmap.clear();
         self.live.clear();
         self.worklist.clear();
 
@@ -97,6 +116,11 @@ impl MirVisitor for MirDCEPass {
     }
 
     fn visit_basicblock(&mut self, block_id: BlockId, block: &mut BasicBlock) -> Self::Output {
+        // Track phi definitions
+        for (i, phi) in block.phi_nodes.iter().enumerate() {
+            self.phi_defmap.insert(phi.dest, (block_id, i));
+        }
+
         for (i, instruction) in block.instructions.iter().enumerate() {
             self.defmap.insert(instruction.dest, (block_id, i));
 

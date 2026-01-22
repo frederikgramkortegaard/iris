@@ -117,8 +117,8 @@ pub fn compute_dominators(function: &MirFunction, predecessors: &Predecessors) -
     let all_blocks: Vec<BlockId> = function.arena.iter().map(|(a, _)| a).collect();
 
     for &node in &all_blocks {
-        if node == function.entry {
-            dom.insert(node, HashSet::from([function.entry]));
+        if node == function.virtual_entry {
+            dom.insert(node, HashSet::from([function.virtual_entry]));
         } else {
             dom.insert(node, HashSet::from_iter(all_blocks.clone()));
         }
@@ -127,7 +127,7 @@ pub fn compute_dominators(function: &MirFunction, predecessors: &Predecessors) -
     loop {
         let mut changed = false;
         for &node in &all_blocks {
-            if node == function.entry {
+            if node == function.virtual_entry {
                 continue;
             }
             let preds = predecessors.get(&node).unwrap();
@@ -186,12 +186,12 @@ pub fn compute_dominator_tree(
     successors: &Successors,
 ) -> DominatorTree {
     let mut idom = DominatorTree::new();
-    let reachable: HashSet<BlockId> = compute_rpo(function.entry, successors)
+    let reachable: HashSet<BlockId> = compute_rpo(function.virtual_entry, successors)
         .into_iter()
         .collect();
 
     for (&block, doms) in dominators {
-        if block == function.entry || !reachable.contains(&block) {
+        if block == function.virtual_entry || !reachable.contains(&block) {
             continue;
         }
 

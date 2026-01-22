@@ -1,0 +1,15 @@
+fn factorial_tail(n: f64, acc: f64) -> f64 {
+  if (n <= 1) {
+    return acc
+  } else {
+    return factorial_tail(n - 1, acc * n)
+  }
+}
+
+fn sum_tail(n: f64, acc: f64) -> f64 {
+  if (n <= 0) {
+    return acc
+  } else {
+    return sum_tail(n - 1, acc + n)
+  }
+}
