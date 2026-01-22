@@ -49,19 +49,17 @@ impl MirDCEPass {
             }
         }
     }
-    fn sweep(&self, program: &mut MirProgram) {
-        for function in &mut program.functions {
-            for block in &mut function.arena.blocks {
-                // @NOTE : All of this `keep` stuff is just so we can println! every time something
-                // is not retained, we should probably wrap this in a DEBUG flag or something
-                block.instructions.retain(|inst| {
-                    let keep = self.live.contains(&inst.dest);
-                    if !keep {
-                        println!("Removing Instruction {:?} from block", inst);
-                    }
-                    keep
-                });
-            }
+    fn sweep(&self, function: &mut MirFunction) {
+        for block in &mut function.arena.blocks {
+            // @NOTE : All of this `keep` stuff is just so we can println! every time something
+            // is not retained, we should probably wrap this in a DEBUG flag or something
+            block.instructions.retain(|inst| {
+                let keep = self.live.contains(&inst.dest);
+                if !keep {
+                    println!("Removing Instruction {:?} from block", inst);
+                }
+                keep
+            });
         }
     }
 }
@@ -91,6 +89,7 @@ impl MirVisitor for MirDCEPass {
 
         self.propagate_worklist(function);
 
+        self.sweep(function);
         println!(
             "Function: {}:\ndefmap: {:?}\nlive: {:?}\nworklist: {:?}\n\n",
             function.name, self.defmap, self.live, self.worklist
@@ -153,7 +152,6 @@ impl MirVisitor for MirDCEPass {
 impl MirPass for MirDCEPass {
     fn run(&mut self, program: &mut MirProgram) {
         self.visit_program(program);
-        self.sweep(program);
     }
 
     fn diagnostics(&self) -> &DiagnosticCollector {

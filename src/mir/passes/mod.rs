@@ -1,5 +1,7 @@
 pub mod const_prop;
+pub mod copy_prop;
 pub mod dce;
+pub mod gvn;
 pub mod print;
 pub mod ssa;
 

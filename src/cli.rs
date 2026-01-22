@@ -8,6 +8,8 @@ use crate::mir::passes::const_prop::MirConstPropPass;
 use crate::mir::passes::dce::MirDCEPass;
 use crate::mir::passes::print::MirPrintingPass;
 use crate::mir::passes::ssa::MirSSAPass;
+use crate::mir::passes::copy_prop::MirCopyPropPass;
+use crate::mir::passes::gvn::MirGVNPass;
 use std::fs;
 
 /// Runs the compiler CLI with the given command-line arguments.
@@ -42,9 +44,10 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Run HIR passes
     program
         .run_pass(&mut CountingPass::new())?
-        .run_pass(&mut PrintPass::new())?
+        .run_pass(&mut PrintPass::with_message("Original"))?
         .run_pass(&mut TypecheckingPass::new())?
-        .run_pass(&mut ASTSimplificationPass::new())?;
+        .run_pass(&mut ASTSimplificationPass::new())?
+        .run_pass(&mut PrintPass::with_message("AST Simplification"))?;
 
     // Lower HIR to MIR
     let mut lowering_pass = LoweringPass::new();
@@ -56,6 +59,10 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         .run_pass(&mut MirPrintingPass::with_message("SSA"))?
         .run_pass(&mut MirConstPropPass::new())?
         .run_pass(&mut MirPrintingPass::with_message("Const Prop"))?
+        .run_pass(&mut MirGVNPass::new())?
+        .run_pass(&mut MirPrintingPass::with_message("GVN"))?
+        .run_pass(&mut MirCopyPropPass::new())?
+        .run_pass(&mut MirPrintingPass::with_message("CopyProp"))?
         .run_pass(&mut MirDCEPass::new())?
         .run_pass(&mut MirPrintingPass::with_message("DCE"))?;
 

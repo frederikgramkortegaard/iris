@@ -1,0 +1,16 @@
+fn main(a: f64, b: f64) -> f64 {
+    var x = a
+    var y = x
+    var z = y
+
+    return z + z
+}
+
+fn chain(n: f64) -> f64 {
+    var a = n
+    var b = a
+    var c = b
+    var d = c
+
+    return d
+}

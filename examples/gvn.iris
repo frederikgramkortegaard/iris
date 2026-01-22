@@ -1,0 +1,19 @@
+fn main(a: f64, b: f64) -> f64 {
+    var x = a + b
+    var y = a + b
+    var z = x + y
+
+    return z
+}
+
+fn across_blocks(a: f64, b: f64, cond: f64) -> f64 {
+    var x = a + b
+
+    if (cond > 0) {
+        var y = a + b
+        return x + y
+    } else {
+        var z = a + b
+        return x + z
+    }
+}

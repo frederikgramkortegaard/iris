@@ -44,7 +44,7 @@ impl MirVisitor for MirConstPropPass {
         self.constant_map.clear();
     }
 
-    //@NOTE : This is just Constant / Copy Propagation, NOT Constant folding
+    //@NOTE : This is just Constant Propagation, NOT Constant folding
     // it does not even remove the redundant instructions, as we're leaving that to the DCE>
     // In the future, we will implement an `SSAConstantFolder` module and use that in here,
     // and then instead of checking if the rhs is constant, we can do this:
