@@ -8,6 +8,7 @@ pub mod frontend;
 pub mod ast;
 pub mod types;
 pub mod diagnostics;
+pub mod pass;
 pub mod cli;
 pub mod hir;
 pub mod mir;

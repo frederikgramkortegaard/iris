@@ -5,11 +5,12 @@ use crate::hir::passes::lowering::LoweringPass;
 use crate::hir::passes::print::PrintPass;
 use crate::hir::passes::typechecking::TypecheckingPass;
 use crate::mir::passes::const_prop::MirConstPropPass;
+use crate::mir::passes::copy_prop::MirCopyPropPass;
 use crate::mir::passes::dce::MirDCEPass;
+use crate::mir::passes::gvn::MirGVNPass;
 use crate::mir::passes::print::MirPrintingPass;
 use crate::mir::passes::ssa::MirSSAPass;
-use crate::mir::passes::copy_prop::MirCopyPropPass;
-use crate::mir::passes::gvn::MirGVNPass;
+use crate::pass::RunPass;
 use std::fs;
 
 /// Runs the compiler CLI with the given command-line arguments.
@@ -56,15 +57,16 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Run MIR passes
     mir.run_pass(&mut MirPrintingPass::with_message("Original"))?
         .run_pass(&mut MirSSAPass::new())?
-        .run_pass(&mut MirPrintingPass::with_message("SSA"))?
-        .run_pass(&mut MirConstPropPass::new())?
-        .run_pass(&mut MirPrintingPass::with_message("Const Prop"))?
+        .run_pass(&mut MirPrintingPass::with_message("SSA"))?;
+
+    for _ in 0..3 {
+        mir.run_pass(&mut MirConstPropPass::new())?
         .run_pass(&mut MirGVNPass::new())?
-        .run_pass(&mut MirPrintingPass::with_message("GVN"))?
         .run_pass(&mut MirCopyPropPass::new())?
-        .run_pass(&mut MirPrintingPass::with_message("CopyProp"))?
-        .run_pass(&mut MirDCEPass::new())?
-        .run_pass(&mut MirPrintingPass::with_message("DCE"))?;
+        .run_pass(&mut MirDCEPass::new())?;
+    }
+
+    mir.run_pass(&mut MirPrintingPass::with_message("After 3 Iterations of Optim"));
 
     Ok(())
 }
