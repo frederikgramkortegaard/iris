@@ -4,10 +4,9 @@ use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::MirProgram;
 use crate::mir::{
-    BasicBlock, BlockId, Instruction, MirFunction, MirType, Opcode, Operand, Reg, Terminator,
+    BlockId, MirFunction, Opcode, Operand, Reg,
 };
-use std::collections::{HashMap, HashSet};
-type InstructionIndex = usize;
+use std::collections::HashMap;
 
 #[derive(Hash, PartialEq, Eq, Clone)]
 enum GVNOperand {

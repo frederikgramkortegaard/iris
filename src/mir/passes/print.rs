@@ -97,7 +97,7 @@ impl MirVisitor for MirPrintingPass {
         self.indent();
         self.walk_function(function);
         self.dedent();
-        println!(); // Blank line after function
+        println!(); 
     }
 
     fn visit_basicblock(&mut self, block_id: BlockId, block: &mut BasicBlock) -> Self::Output {
