@@ -23,6 +23,11 @@ impl MirPrintingPass {
         }
     }
 
+    pub fn with_message(message: impl Into<String>) -> Self {
+        println!("{}", message.into());
+        Self::new()
+    }
+
     fn print(&self, msg: &str) {
         println!("{}{}", "  ".repeat(self.indent), msg);
     }

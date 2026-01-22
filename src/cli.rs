@@ -10,7 +10,6 @@ use crate::mir::passes::print::MirPrintingPass;
 use crate::mir::passes::ssa::MirSSAPass;
 use std::fs;
 
-
 /// Runs the compiler CLI with the given command-line arguments.
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -44,18 +43,21 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     program
         .run_pass(&mut CountingPass::new())?
         .run_pass(&mut PrintPass::new())?
-        .run_pass(&mut ASTSimplificationPass::new())?
-        .run_pass(&mut TypecheckingPass::new())?;
+        .run_pass(&mut TypecheckingPass::new())?
+        .run_pass(&mut ASTSimplificationPass::new())?;
 
     // Lower HIR to MIR
     let mut lowering_pass = LoweringPass::new();
     let mut mir = lowering_pass.lower(&mut program);
 
     // Run MIR passes
-    mir.run_pass(&mut MirSSAPass::new())?
+    mir.run_pass(&mut MirPrintingPass::with_message("Original"))?
+        .run_pass(&mut MirSSAPass::new())?
+        .run_pass(&mut MirPrintingPass::with_message("SSA"))?
         .run_pass(&mut MirConstPropPass::new())?
+        .run_pass(&mut MirPrintingPass::with_message("Const Prop"))?
         .run_pass(&mut MirDCEPass::new())?
-        .run_pass(&mut MirPrintingPass::new())?;
+        .run_pass(&mut MirPrintingPass::with_message("DCE"))?;
 
     Ok(())
 }

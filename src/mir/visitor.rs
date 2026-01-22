@@ -1,4 +1,6 @@
-use crate::mir::{BasicBlock, BlockId, Instruction, MirFunction, MirProgram, MirType, Operand, Reg, Terminator};
+use crate::mir::{
+    BasicBlock, BlockId, Instruction, MirFunction, MirProgram, MirType, Operand, Reg, Terminator,
+};
 
 // Re-export DiagnosticCollector for convenience
 pub use crate::diagnostics::DiagnosticCollector;
