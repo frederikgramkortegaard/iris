@@ -66,7 +66,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         .run_pass(&mut MirDCEPass::new())?;
     }
 
-    mir.run_pass(&mut MirPrintingPass::with_message("After 3 Iterations of Optim"));
+    _ = mir.run_pass(&mut MirPrintingPass::with_message("After 3 Iterations of Optim"));
 
     Ok(())
 }

@@ -1,7 +1,7 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{Instruction, MirFunction, MirProgram, Opcode, Operand, Reg};
+use crate::mir::{Instruction, MirFunction, MirProgram, Opcode, Operand, Reg, Terminator};
 use std::collections::HashMap;
 
 pub struct MirCopyPropPass {
@@ -41,24 +41,40 @@ impl MirVisitor for MirCopyPropPass {
     }
 
     fn visit_instruction(&mut self, instruction: &mut Instruction) -> Self::Output {
-        if !matches!(instruction.op, Opcode::Copy) {
-            self.walk_instruction(instruction);
-            return;
-        }
-
-        if instruction.args.len() != 1 {
-            println!("{:?}", instruction);
-            self.diagnostics.error("An instruction with Opcode::Copy should not be able to have any other number of arguments than 1".into());
-        }
-
-        if let Some(Operand::Reg(src)) = instruction.args.first() {
-            if let Some(&r) = self.copy_map.get(src) {
-                instruction.args[0] = Operand::Reg(r);
+        for arg in &mut instruction.args {
+            if let Operand::Reg(src) = arg {
+                if let Some(&r) = self.copy_map.get(src) {
+                    println!("Replacing register r{} with constant {:?}", src, r);
+                    *arg = Operand::Reg(r)
+                }
             }
         }
 
-        if let Some(Operand::Reg(src)) = instruction.args.first() {
-            self.copy_map.insert(instruction.dest, *src);
+        if instruction.op == Opcode::Copy {
+            if let Some(Operand::Reg(src)) = instruction.args.first() {
+                self.copy_map.insert(instruction.dest, *src);
+            }
+        }
+    }
+
+    fn visit_terminator(&mut self, term: &mut Terminator) -> Self::Output {
+        match term {
+            Terminator::Ret {
+                value: Some(Operand::Reg(r)),
+            } => {
+                if let Some(&src) = self.copy_map.get(r) {
+                    *r = src
+                }
+            }
+            Terminator::BrIf {
+                cond: Operand::Reg(r),
+                ..
+            } => {
+                if let Some(&src) = self.copy_map.get(r) {
+                    *r = src
+                }
+            }
+            _ => {}
         }
     }
 }

@@ -85,9 +85,13 @@ impl MirVisitor for MirPrintingPass {
 
     fn visit_function(&mut self, function: &mut MirFunction) -> Self::Output {
         println!(
-            "fn {}({} params) -> {:?}:",
+            "fn {}({} params: [{}]) -> {:?}:",
             function.name,
             function.params.len(),
+            function.params.iter()
+                .map(|(r, _)| format!("r{}", r))
+                .collect::<Vec<_>>()
+                .join(", "),
             function.return_type
         );
         self.indent();
