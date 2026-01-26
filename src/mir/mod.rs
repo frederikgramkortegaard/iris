@@ -101,7 +101,7 @@ pub enum Terminator {
 /// Arena for allocating basic blocks
 #[derive(Debug)]
 pub struct BlockArena {
-    blocks: Vec<BasicBlock>,
+    pub blocks: Vec<BasicBlock>,
 }
 
 impl Default for BlockArena {

@@ -44,31 +44,25 @@ impl MirVisitor for MirTailCallPass {
                 value: Some(Operand::Reg(r)),
             } = block.terminator
             else {
-                println!("a");
                 continue;
             };
 
             let Some(inst) = block.instructions.last().cloned() else {
-                println!("b");
-                continue;
-            };
-
-            if inst.dest != r {
-                println!("c");
                 continue;
             };
 
             if inst.op != Opcode::Call {
-                println!("d");
                 continue;
             }
 
+            if inst.dest != r {
+                continue;
+            };
+
             // Only do Tail Call optim if the function we're calling is ourselves (recursive)
             if let Some(Operand::Label(s)) = inst.args.first() {
-                println!("e");
                 if *s != function.name {
-                    println!("f");
-                continue;
+                    continue;
                 }
             }
 
@@ -79,19 +73,14 @@ impl MirVisitor for MirTailCallPass {
 
             block.instructions.pop();
 
-            println!("g");
-
-
             // Reassign call arguments to function parameters
             for (i, (name, typ)) in function.params.iter().enumerate() {
-            println!("h");
                 block.instructions.push(Instruction {
                     dest: *name,
                     op: Opcode::Copy,
                     args: vec![inst.args[i + 1].clone()],
                     typ: *typ,
                 });
-                println!("add inst");
             }
         }
     }

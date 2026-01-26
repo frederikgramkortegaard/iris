@@ -1,5 +1,6 @@
 use crate::frontend::{LexerContext, ParserContext};
 use crate::hir::passes::ast_simplification::ASTSimplificationPass;
+use crate::mir::passes::loops::MirLoopPass;
 use crate::hir::passes::counting::CountingPass;
 use crate::hir::passes::lowering::LoweringPass;
 use crate::hir::passes::print::PrintPass;
@@ -63,7 +64,6 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         .run_pass(&mut MirSSAPass::new())?
         .run_pass(&mut MirPrintingPass::with_message("SSA"))?;
 
-
     for _ in 0..3 {
         mir.run_pass(&mut MirConstPropPass::new())?
             .run_pass(&mut MirGVNPass::new())?
@@ -74,6 +74,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     _ = mir.run_pass(&mut MirPrintingPass::with_message(
         "After 3 Iterations of Optim",
     ));
+
+    mir.run_pass(&mut MirLoopPass::new())?;
 
     Ok(())
 }
