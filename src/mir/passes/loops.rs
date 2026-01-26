@@ -59,31 +59,50 @@ impl MirLoopPass {
         back_edges: &HashMap<Header, Vec<Latch>>,
         predecessors: &cfg::Predecessors,
     ) -> Vec<Loop> {
-        let mut loops = vec![];
+        // First compute all bodies
+        let mut loop_data: Vec<(BlockId, Vec<BlockId>, HashSet<BlockId>)> = vec![];
         for (header, latches) in back_edges {
-            let mut body: HashSet<BlockId> = HashSet::new();
-            body.insert(*header);
+            let body = self.compute_body(*header, latches, predecessors);
+            loop_data.push((*header, latches.clone(), body));
+        }
 
-            let mut stack: Vec<BlockId> = latches.clone();
+        // Sort by body size descending (outer loops first)
+        loop_data.sort_by(|a, b| b.2.len().cmp(&a.2.len()));
 
-            while let Some(node) = stack.pop() {
-                if !body.contains(&node) {
-                    body.insert(node);
-                    if let Some(preds) = predecessors.get(&node) {
-                        stack.extend(preds.iter().copied());
-                    }
-                }
-            }
+        let mut loops = vec![];
+        for (header, latches, body) in loop_data {
+            // Find parent: smallest existing loop that contains our header
+            let parent = loops
+                .iter()
+                .filter(|l: &&Loop| l.body.contains(&header))
+                .min_by_key(|l| l.body.len())
+                .map(|l| l.header);
 
-            loops.push(Loop {
-                header: *header,
-                latches: latches.clone(),
-                body,
-                parent: None,
-            });
+            loops.push(Loop { header, latches, body, parent });
         }
 
         loops
+    }
+
+    fn compute_body(
+        &self,
+        header: BlockId,
+        latches: &[BlockId],
+        predecessors: &cfg::Predecessors,
+    ) -> HashSet<BlockId> {
+        let mut body = HashSet::new();
+        body.insert(header);
+        let mut stack: Vec<BlockId> = latches.to_vec();
+
+        while let Some(node) = stack.pop() {
+            if !body.contains(&node) {
+                body.insert(node);
+                if let Some(preds) = predecessors.get(&node) {
+                    stack.extend(preds.iter().copied());
+                }
+            }
+        }
+        body
     }
 }
 
@@ -107,8 +126,8 @@ impl MirVisitor for MirLoopPass {
 
         for l in &loops {
             println!(
-                "Loop: header={:?}, latches={:?}, body={:?}",
-                l.header, l.latches, l.body
+                "Loop: header={:?}, latches={:?}, parent={:?}, body={:?}",
+                l.header, l.latches, l.parent, l.body
             );
         }
     }
