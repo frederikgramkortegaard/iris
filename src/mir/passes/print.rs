@@ -101,7 +101,8 @@ impl MirVisitor for MirPrintingPass {
     }
 
     fn visit_basicblock(&mut self, block_id: BlockId, block: &mut BasicBlock) -> Self::Output {
-        println!("block{}:", block_id.index());
+        let note = block.note.as_ref().map(|n| format!("  ; {}", n)).unwrap_or_default();
+        println!("block{}:{}", block_id.index(), note);
         self.indent();
         self.walk_basicblock(block);
         self.dedent();

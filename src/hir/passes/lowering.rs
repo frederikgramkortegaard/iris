@@ -86,6 +86,7 @@ impl LoweringPass {
             instructions: Vec::new(),
             terminator: Terminator::Unreachable,
             phi_nodes: Vec::new(),
+            note: None,
         })
     }
 

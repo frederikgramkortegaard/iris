@@ -80,6 +80,7 @@ pub struct BasicBlock {
     pub instructions: Vec<Instruction>,
     pub terminator: Terminator,
     pub phi_nodes: Vec<Instruction>,
+    pub note: Option<String>,
 }
 
 #[derive(Debug)]
@@ -173,6 +174,7 @@ impl MirFunction {
             instructions: Vec::new(),
             terminator: Terminator::Unreachable,
             phi_nodes: Vec::new(),
+            note: Some("entry".to_string()),
         });
 
         // Create virtual entry block (for CFG purposes, branches to real entry)
@@ -180,6 +182,7 @@ impl MirFunction {
             instructions: Vec::new(),
             terminator: Terminator::Br { target: entry },
             phi_nodes: Vec::new(),
+            note: Some("virtual_entry".to_string()),
         });
 
         MirFunction {
