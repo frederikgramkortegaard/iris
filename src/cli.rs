@@ -66,17 +66,12 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     for _ in 0..3 {
         mir.run_pass(&mut MirConstPropPass::new())?
+            .run_pass(&mut MirLoopPass::new())?
             .run_pass(&mut MirGVNPass::new())?
             .run_pass(&mut MirCopyPropPass::new())?
             .run_pass(&mut MirDCEPass::new())?;
     }
-
-    _ = mir.run_pass(&mut MirPrintingPass::with_message(
-        "After 3 Iterations of Optim",
-    ));
-
-    mir.run_pass(&mut MirLoopPass::new())?
-        .run_pass(&mut MirPrintingPass::with_message("After Loop Optims"))?;
+    mir.run_pass(&mut MirPrintingPass::new())?;
 
     Ok(())
 }

@@ -1,8 +1,8 @@
 use crate::diagnostics::DiagnosticCollector;
-use crate::mir::MirProgram;
 use crate::mir::cfg;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
+use crate::mir::MirProgram;
 use crate::mir::{BasicBlock, BlockId, Instruction, MirFunction, Opcode, Operand, Reg, Terminator};
 use std::collections::{HashMap, HashSet};
 
@@ -20,6 +20,7 @@ pub struct Loop {
     latches: Vec<BlockId>,
     body: HashSet<BlockId>,
     parent: Option<BlockId>,
+    invariants: HashSet<Reg>,
 }
 
 impl Default for MirLoopPass {
@@ -86,6 +87,7 @@ impl MirLoopPass {
                 latches,
                 body,
                 parent,
+                invariants: HashSet::new(),
             });
         }
 
@@ -113,6 +115,39 @@ impl MirLoopPass {
         body
     }
 
+    fn find_invariants(&mut self, function: &mut MirFunction, lop: &Loop) -> HashSet<Reg> {
+        let mut invariant: HashSet<Reg> = self
+            .defs
+            .iter()
+            .filter(|(_, y)| !lop.body.contains(y))
+            .map(|(reg, _)| *reg)
+            .collect::<HashSet<Reg>>();
+
+        // Admittedly a little less efficient to pre-collect the instructions, but it helps
+        // clarity
+        let instructions_in_loop: Vec<&Instruction> = lop
+            .body
+            .iter()
+            .flat_map(|bid| function.block(*bid).instructions.iter())
+            .collect();
+
+        let mut converged = false;
+        while !converged {
+            converged = true;
+            for inst in instructions_in_loop.iter().filter(|b| b.op != Opcode::Call) {
+                if inst.args.iter().all(|b| match b {
+                    Operand::Reg(r) => invariant.contains(r),
+                    Operand::Label(..) | Operand::Pair(..) => false,
+                    _ => true,
+                }) {
+                    converged = converged && !invariant.insert(inst.dest);
+                }
+            }
+        }
+
+        println!("Found following invariants in {:?}: {:?}", lop, invariant);
+        invariant
+    }
     fn licm(
         &mut self,
         function: &mut MirFunction,
@@ -121,37 +156,30 @@ impl MirLoopPass {
         dominators: &cfg::DominatorSets,
     ) {
         for lop in loops {
-            let mut invariant: HashSet<Reg> = self
-                .defs
-                .iter()
-                .filter(|(_, y)| !lop.body.contains(y))
-                .map(|(reg, _)| *reg)
-                .collect::<HashSet<Reg>>();
+            // Find hoistable instructions sorted by dominator tree order
+            let mut sorted_body: Vec<BlockId> = lop.body.iter().copied().collect();
+            sorted_body.sort_by_key(|b| dominators.get(b).map(|d| d.len()).unwrap_or(0));
 
-            // Admittedly a little less efficient to pre-collect the instructions, but it helps
-            // clarity
-            let instructions_in_loop: Vec<&Instruction> = lop
-                .body
-                .iter()
-                .flat_map(|bid| function.block(*bid).instructions.iter())
-                .collect();
-
-            let mut converged = false;
-            while !converged {
-                converged = true;
-                for inst in instructions_in_loop.iter().filter(|b| b.op != Opcode::Call) {
-                    if inst.args.iter().all(|b| match b {
-                        Operand::Reg(r) => invariant.contains(r),
-                        Operand::Label(..) => false,
-                        Operand::Pair(..) => false,
-                        _ => true,
-                    }) {
-                        converged = converged && !invariant.insert(inst.dest);
+            let inv = &lop.invariants;
+            let mut to_hoist: Vec<(BlockId, Vec<usize>)> = vec![];
+            for block in &sorted_body {
+                let mut indices = vec![];
+                for (i, inst) in function.block(*block).instructions.iter().enumerate() {
+                    if inv.contains(&inst.dest)
+                        && lop.body.contains(self.defs.get(&inst.dest).unwrap())
+                    {
+                        indices.push(i);
                     }
+                }
+
+                if !indices.is_empty() {
+                    to_hoist.push((*block, indices));
                 }
             }
 
-            println!("Found following invariants in {:?}: {:?}", lop, invariant);
+            if to_hoist.is_empty() {
+                continue;
+            }
 
             // Preheader
             let preheader = function.arena.alloc(BasicBlock {
@@ -193,25 +221,6 @@ impl MirLoopPass {
                 }
             }
 
-            // Find hoistable instructions sorted by dominator tree order
-            let mut sorted_body: Vec<BlockId> = lop.body.iter().copied().collect();
-            sorted_body.sort_by_key(|b| dominators.get(b).map(|d| d.len()).unwrap_or(0));
-
-            let mut to_hoist: Vec<(BlockId, Vec<usize>)> = vec![];
-            for block in &sorted_body {
-                let mut indices = vec![];
-                for (i, inst) in function.block(*block).instructions.iter().enumerate() {
-                    if invariant.contains(&inst.dest)
-                        && lop.body.contains(self.defs.get(&inst.dest).unwrap())
-                    {
-                        indices.push(i);
-                    }
-                }
-
-                if !indices.is_empty() {
-                    to_hoist.push((*block, indices));
-                }
-            }
             // add instruction <i> for i in indices to remove to preheader and
             // remove instruction <i> fro block.instructions
             for (id, indices) in to_hoist {
@@ -257,7 +266,21 @@ impl MirVisitor for MirLoopPass {
         let dominators = cfg::compute_dominators(function, &predecessors);
 
         let back_edges = self.find_back_edges(function, &successors, &dominators);
-        let loops = self.find_loops(&back_edges, &predecessors);
+        let loops = self
+            .find_loops(&back_edges, &predecessors)
+            .into_iter()
+            .map(|l| {
+                // Find Invariants in each loop
+                let invariants = self.find_invariants(function, &l);
+                Loop {
+                    header: l.header,
+                    latches: l.latches,
+                    body: l.body,
+                    parent: l.parent,
+                    invariants,
+                }
+            })
+            .collect();
 
         self.licm(function, &loops, &predecessors, &dominators);
     }
