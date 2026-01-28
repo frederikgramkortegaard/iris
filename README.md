@@ -14,7 +14,9 @@ Source -> Frontend -> HIR -> MIR -> LIR -> Target
                       |          - SSA Conversion
                       |          - Constant Propagation (SCCP)
                       |          - Constant Folding
-                      |          - Dead Code Elimination
+                      |          - Global Value Numbering (GVN)
+                      |          - Copy Propagation
+                      |          - Dead Code Elimination (DCE)
                       |
                       +-- Passes
                           - Type Checking
@@ -38,7 +40,9 @@ Source -> Frontend -> HIR -> MIR -> LIR -> Target
 ### Optimization Passes
 - **Constant Propagation (SCCP)** - tracks constant values through SSA form
 - **Constant Folding** - evaluates constant expressions at compile time
+- **Global Value Numbering (GVN)** - eliminates redundant computations
 - **Copy Propagation** - eliminates redundant copies
+- **Dead Code Elimination (DCE)** - removes unused instructions
 
 ### Visitor Pattern
 Both HIR, MIR and LIR implement a visitor pattern for traversing and transforming the IR:
@@ -116,7 +120,10 @@ src/
 |   |-- visitor.rs
 |   +-- passes/
 |       |-- ssa.rs                 # Phi insertion, variable renaming
-|       +-- const_prop.rs          # Constant/copy propagation
+|       |-- const_prop.rs          # Constant propagation
+|       |-- gvn.rs                 # Global value numbering
+|       |-- copy_prop.rs           # Copy propagation
+|       +-- dce.rs                 # Dead code elimination
 |
 +-- lir/
     +-- ...

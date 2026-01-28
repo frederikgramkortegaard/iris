@@ -5,20 +5,20 @@ use crate::hir::visitor::{DiagnosticCollector, Visitor};
 use crate::types::Function;
 
 /// Visitor that performs AST simplification (constant folding, boolean folding, algebraic simplification)
-pub struct ASTSimplificationPass {
+pub struct SimplifyPass {
     diagnostics: DiagnosticCollector,
     folded_nodes_count: u64,
 }
 
-impl Default for ASTSimplificationPass {
+impl Default for SimplifyPass {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ASTSimplificationPass {
+impl SimplifyPass {
     pub fn new() -> Self {
-        ASTSimplificationPass {
+        SimplifyPass {
             diagnostics: DiagnosticCollector::new(),
             folded_nodes_count: 0,
         }
@@ -458,7 +458,7 @@ impl ASTSimplificationPass {
     }
 }
 
-impl Visitor for ASTSimplificationPass {
+impl Visitor for SimplifyPass {
     type Output = ();
 
     fn diagnostics(&self) -> &DiagnosticCollector {
@@ -495,7 +495,7 @@ impl Visitor for ASTSimplificationPass {
     }
 }
 
-impl HirPass for ASTSimplificationPass {
+impl HirPass for SimplifyPass {
     fn run(&mut self, program: &mut Program) {
         self.visit_program(program);
     }

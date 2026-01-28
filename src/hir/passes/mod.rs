@@ -1,4 +1,4 @@
-pub mod ast_simplification;
+pub mod simplify;
 pub mod counting;
 pub mod lowering;
 pub mod print;

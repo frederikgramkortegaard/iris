@@ -1,5 +1,5 @@
 use crate::frontend::{LexerContext, ParserContext};
-use crate::hir::passes::ast_simplification::ASTSimplificationPass;
+use crate::hir::passes::simplify::SimplifyPass;
 use crate::hir::passes::counting::CountingPass;
 use crate::hir::passes::lowering::LoweringPass;
 use crate::hir::passes::print::PrintPass;
@@ -50,7 +50,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         .run_pass(&mut CountingPass::new())?
         .run_pass(&mut PrintPass::with_message("Original"))?
         .run_pass(&mut TypecheckingPass::new())?
-        .run_pass(&mut ASTSimplificationPass::new())?
+        .run_pass(&mut SimplifyPass::new())?
         .run_pass(&mut PrintPass::with_message("AST Simplification"))?;
 
     // Lower HIR to MIR
