@@ -174,33 +174,16 @@ impl Visitor for LoweringPass {
         // Push function scope for parameters
         self.push_scope();
 
-        // Convert parameters and allocate them in the function's scope
-        let mut params = Vec::new();
+        // Convert return type and create MIR function
+        let return_type = self.convert_type(&function.return_type);
+        let mut mir_func = mir::Function::new(function.name.clone(), vec![], return_type);
+
+        // Convert parameters, allocate in scope, and register definitions
         for arg in &function.args {
-            // Allocate parameter in current scope (gets register + adds to scope)
             let reg = self.alloc_variable(arg.name.clone());
             let mir_type = self.convert_type(&arg.typ);
-            params.push((reg, mir_type));
-        }
-
-        // Convert return type
-        let return_type = self.convert_type(&function.return_type);
-
-        // Create MIR function and set as current
-        let mut mir_func = mir::Function::new(function.name.clone(), params, return_type);
-
-        // @NOTE : This should be done in the previous parameter loop but that would require too
-        // many changes for now, so we just do it here.
-        //
-        // Where we're doing is initializing the parameter registers into the map in the
-        // Function which stores where a register was originally defined, aka. where it was
-        // allocated the first time.  We use this for SSA Renaming later
-        for (reg, _type) in &mir_func.params {
-            mir_func
-                .definitions
-                .entry(*reg)
-                .or_default()
-                .insert(mir_func.entry);
+            mir_func.params.push((reg, mir_type));
+            mir_func.definitions.entry(reg).or_default().insert(mir_func.entry);
         }
 
         let entry_block = mir_func.entry;
