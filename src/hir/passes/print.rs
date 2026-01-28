@@ -29,7 +29,6 @@ impl PrintPass {
         Self::new()
     }
 
-
     fn print(&self, msg: &str) {
         println!("{}{}", "  ".repeat(self.indent), msg);
     }

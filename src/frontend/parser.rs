@@ -99,7 +99,9 @@ impl ParserContext {
         while self.peek().is_some() && self.peek().unwrap().tag != TokenType::Eof {
             let statement = self.parse_statement()?;
             match statement {
-                Statement::Assignment { left, typ, right, .. } => {
+                Statement::Assignment {
+                    left, typ, right, ..
+                } => {
                     // If no type specified, default to Auto for type inference
                     let typ = typ.unwrap_or(Type::Base(BaseType::Auto));
 
@@ -129,7 +131,7 @@ impl ParserContext {
                             "Unexpected statement at top level: {:?}. Only function definitions and variable declarations are allowed at the top level.",
                             statement
                         ),
-                    })
+                    });
                 }
             }
         }
@@ -159,7 +161,7 @@ impl ParserContext {
                     _ => {
                         return Err(ParseError {
                             message: format!("Expected type, got {:?}", token.tag),
-                        })
+                        });
                     }
                 };
                 self.consume(); // consume the type token
@@ -209,14 +211,12 @@ impl ParserContext {
         match self.peek() {
             Some(token) => match token.tag {
                 // Error on semicolon - not in the language
-                TokenType::Semicolon => {
-                    Err(ParseError {
-                        message: format!(
-                            "Unexpected semicolon at line {}:{}. This language does not use semicolons.",
-                            token.row, token.column
-                        ),
-                    })
-                }
+                TokenType::Semicolon => Err(ParseError {
+                    message: format!(
+                        "Unexpected semicolon at line {}:{}. This language does not use semicolons.",
+                        token.row, token.column
+                    ),
+                }),
 
                 // Function definition
                 TokenType::Fn => {
@@ -301,7 +301,8 @@ impl ParserContext {
                         "Expected '}' after function body".to_string(),
                     )?;
 
-                    let span = Span::merge(&Span::from_token(&fn_token), &Span::from_token(&rbrace));
+                    let span =
+                        Span::merge(&Span::from_token(&fn_token), &Span::from_token(&rbrace));
 
                     Ok(Statement::FunctionDefinition {
                         name: name.lexeme,
@@ -316,14 +317,12 @@ impl ParserContext {
                     let lbrace = self.consume().unwrap();
 
                     let body = self.parse_block(&lbrace)?;
-                    let rbrace = self.consume_assert(TokenType::RBrace, "Missing } after body".to_string())?;
+                    let rbrace =
+                        self.consume_assert(TokenType::RBrace, "Missing } after body".to_string())?;
 
                     let span = Span::merge(&Span::from_token(&lbrace), &Span::from_token(&rbrace));
 
-                    Ok(Statement::Block {
-                        block: body,
-                        span,
-                    })
+                    Ok(Statement::Block { block: body, span })
                 }
                 TokenType::Return => {
                     let return_token = self.consume().unwrap();
@@ -365,9 +364,14 @@ impl ParserContext {
                         "Missing } after while body".to_string(),
                     )?;
 
-                    let span = Span::merge(&Span::from_token(&while_token), &Span::from_token(&rbrace));
+                    let span =
+                        Span::merge(&Span::from_token(&while_token), &Span::from_token(&rbrace));
 
-                    Ok(Statement::While { condition, body, span })
+                    Ok(Statement::While {
+                        condition,
+                        body,
+                        span,
+                    })
                 }
                 TokenType::If => {
                     let if_token = self.consume().unwrap();
@@ -382,7 +386,8 @@ impl ParserContext {
 
                     let then = self.parse_block(&lbrace)?;
 
-                    let mut rbrace = self.consume_assert(TokenType::RBrace, "Missing } after if body".to_string())?;
+                    let mut rbrace = self
+                        .consume_assert(TokenType::RBrace, "Missing } after if body".to_string())?;
 
                     let els = match self.peek() {
                         Some(token) if token.tag == TokenType::Else => {
@@ -401,7 +406,8 @@ impl ParserContext {
                         _ => None,
                     };
 
-                    let span = Span::merge(&Span::from_token(&if_token), &Span::from_token(&rbrace));
+                    let span =
+                        Span::merge(&Span::from_token(&if_token), &Span::from_token(&rbrace));
 
                     Ok(Statement::If {
                         condition,
@@ -478,7 +484,10 @@ impl ParserContext {
                     let span = if let Some(r) = &right {
                         Span::merge(&Span::from_token(&var_token), &r.span())
                     } else {
-                        Span::merge(&Span::from_token(&var_token), &Span::from_token(&identifier))
+                        Span::merge(
+                            &Span::from_token(&var_token),
+                            &Span::from_token(&identifier),
+                        )
                     };
 
                     Ok(Statement::Assignment {
@@ -577,7 +586,10 @@ impl ParserContext {
                                 "Expected ')' after arguments".to_string(),
                             )?;
 
-                            let span = Span::merge(&Span::from_token(&identifier), &Span::from_token(&rparen));
+                            let span = Span::merge(
+                                &Span::from_token(&identifier),
+                                &Span::from_token(&rparen),
+                            );
 
                             return Ok(Expression::Call {
                                 identifier: identifier.lexeme,

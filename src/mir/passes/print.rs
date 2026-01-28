@@ -88,7 +88,9 @@ impl MirVisitor for MirPrintingPass {
             "fn {}({} params: [{}]) -> {:?}:",
             function.name,
             function.params.len(),
-            function.params.iter()
+            function
+                .params
+                .iter()
                 .map(|(r, _)| format!("r{}", r))
                 .collect::<Vec<_>>()
                 .join(", "),
@@ -97,11 +99,15 @@ impl MirVisitor for MirPrintingPass {
         self.indent();
         self.walk_function(function);
         self.dedent();
-        println!(); 
+        println!();
     }
 
     fn visit_basicblock(&mut self, block_id: BlockId, block: &mut BasicBlock) -> Self::Output {
-        let note = block.note.as_ref().map(|n| format!("  ; {}", n)).unwrap_or_default();
+        let note = block
+            .note
+            .as_ref()
+            .map(|n| format!("  ; {}", n))
+            .unwrap_or_default();
         println!("block{}:{}", block_id.index(), note);
         self.indent();
         self.walk_basicblock(block);

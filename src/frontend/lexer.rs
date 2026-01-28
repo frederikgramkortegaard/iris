@@ -92,7 +92,6 @@ pub struct LexerContext {
 }
 
 impl LexerContext {
-
     /// Peeks at a character at the given lookahead offset from the current cursor position.
     /// Returns `None` if the position is beyond the end of the input.
     fn peek(&self, lookahead: usize) -> Option<char> {

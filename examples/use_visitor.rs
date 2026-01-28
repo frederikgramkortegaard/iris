@@ -1,11 +1,11 @@
 // Example showing how to use the Visitor pattern
 // Run with: cargo run --example use_visitor
 
+use iris::ast::{Expression, Program, Statement};
 use iris::lexer::LexerContext;
 use iris::parser::ParserContext;
-use iris::visitor::{Visitor, DiagnosticCollector};
-use iris::ast::{Expression, Statement, Program};
 use iris::types::{Function, Variable};
+use iris::visitor::{DiagnosticCollector, Visitor};
 
 /// Simple visitor that prints what it visits
 struct PrintVisitor {
@@ -46,9 +46,11 @@ impl Visitor for PrintVisitor {
     }
 
     fn visit_program(&mut self, program: &Program) {
-        self.print(&format!("Program ({} globals, {} functions)",
+        self.print(&format!(
+            "Program ({} globals, {} functions)",
             program.globals.len(),
-            program.functions.len()));
+            program.functions.len()
+        ));
         self.indent();
         self.walk_program(program);
         self.dedent();
@@ -71,7 +73,9 @@ impl Visitor for PrintVisitor {
     fn visit_statement(&mut self, statement: &Statement) {
         match statement {
             Statement::Assignment { left, .. } => self.print(&format!("Assignment to: {}", left)),
-            Statement::FunctionDefinition { name, .. } => self.print(&format!("FunctionDef: {}", name)),
+            Statement::FunctionDefinition { name, .. } => {
+                self.print(&format!("FunctionDef: {}", name))
+            }
             Statement::If { .. } => self.print("If statement"),
             Statement::While { .. } => self.print("While loop"),
             Statement::Block(_) => self.print("Block"),
@@ -91,7 +95,9 @@ impl Visitor for PrintVisitor {
             Expression::Call { identifier, args } => {
                 self.print(&format!("Call: {}({} args)", identifier, args.len()))
             }
-            Expression::Variable { identifier } => self.print(&format!("Variable ref: {}", identifier)),
+            Expression::Variable { identifier } => {
+                self.print(&format!("Variable ref: {}", identifier))
+            }
         }
         self.indent();
         self.walk_expression(expression);

@@ -77,7 +77,11 @@ impl MirVisitor for MirConstPropPass {
             self.constant_map
                 .entry(instruction.dest)
                 .or_insert(instruction.args[0].clone());
-            println!("Register r{} is being assigned as a constant with value{:?}, adding it to `constant_map`", instruction.dest, instruction.args[0].clone());
+            println!(
+                "Register r{} is being assigned as a constant with value{:?}, adding it to `constant_map`",
+                instruction.dest,
+                instruction.args[0].clone()
+            );
         }
     }
 }

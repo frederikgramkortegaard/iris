@@ -56,7 +56,7 @@ pub enum Expression {
         name: String,
         span: Span,
         typ: Option<Type>,
-    }
+    },
 }
 
 impl Expression {

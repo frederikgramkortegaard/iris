@@ -1,9 +1,7 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{
-    BasicBlock, BlockId, Instruction, MirFunction, MirProgram, Opcode, Operand, Reg, Terminator,
-};
+use crate::mir::{Instruction, MirFunction, MirProgram, Opcode, Operand, Reg, Terminator};
 use std::collections::HashMap;
 
 pub struct MirCopyPropPass {

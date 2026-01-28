@@ -1,11 +1,9 @@
 use crate::diagnostics::DiagnosticCollector;
+use crate::mir::MirProgram;
 use crate::mir::cfg;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::MirProgram;
-use crate::mir::{
-    BlockId, MirFunction, Opcode, Operand, Reg,
-};
+use crate::mir::{BlockId, MirFunction, Opcode, Operand, Reg};
 use std::collections::HashMap;
 
 #[derive(Hash, PartialEq, Eq, Clone)]

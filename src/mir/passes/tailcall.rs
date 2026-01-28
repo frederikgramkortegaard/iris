@@ -1,11 +1,8 @@
 use crate::diagnostics::DiagnosticCollector;
+use crate::mir::MirProgram;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::MirProgram;
-use crate::mir::{
-    BasicBlock, BlockId, Instruction, MirFunction, MirType, Opcode, Operand, Reg, Terminator,
-};
-use std::collections::{HashMap, HashSet};
+use crate::mir::{Instruction, MirFunction, Opcode, Operand, Terminator};
 
 /// Dead Code Elimination pass
 pub struct MirTailCallPass {
