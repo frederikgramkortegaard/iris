@@ -8,18 +8,18 @@ pub mod ssa;
 pub mod tailcall;
 
 use crate::diagnostics::DiagnosticCollector;
-use crate::mir::MirProgram;
+use crate::mir::Program;
 use crate::pass::Pass;
 
 /// Trait for MIR passes
 pub trait MirPass {
-    fn run(&mut self, program: &mut MirProgram);
+    fn run(&mut self, program: &mut Program);
     fn diagnostics(&self) -> &DiagnosticCollector;
 }
 
-/// Blanket impl: any MirPass is also a Pass<MirProgram>
-impl<T: MirPass> Pass<MirProgram> for T {
-    fn run(&mut self, ir: &mut MirProgram) {
+/// Blanket impl: any MirPass is also a Pass<Program>
+impl<T: MirPass> Pass<Program> for T {
+    fn run(&mut self, ir: &mut Program) {
         MirPass::run(self, ir)
     }
     fn diagnostics(&self) -> &DiagnosticCollector {

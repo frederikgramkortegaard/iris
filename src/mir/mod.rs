@@ -25,7 +25,7 @@ pub enum Opcode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MirType {
+pub enum Type {
     F8,
     F16,
     F32,
@@ -71,7 +71,7 @@ impl BlockId {
 pub struct Instruction {
     pub dest: Reg,
     pub op: Opcode,
-    pub typ: MirType,
+    pub typ: Type,
     pub args: Vec<Operand>,
 }
 
@@ -153,10 +153,10 @@ impl BlockArena {
 }
 
 #[derive(Debug)]
-pub struct MirFunction {
+pub struct Function {
     pub name: String,
-    pub params: Vec<(Reg, MirType)>,
-    pub return_type: MirType,
+    pub params: Vec<(Reg, Type)>,
+    pub return_type: Type,
     pub arena: BlockArena,
     pub entry: BlockId,
     pub virtual_entry: BlockId,
@@ -164,9 +164,9 @@ pub struct MirFunction {
     pub next_free_reg: Reg,
 }
 
-impl MirFunction {
+impl Function {
     /// Create a new function with an entry block and virtual entry
-    pub fn new(name: String, params: Vec<(Reg, MirType)>, return_type: MirType) -> Self {
+    pub fn new(name: String, params: Vec<(Reg, Type)>, return_type: Type) -> Self {
         let mut arena = BlockArena::new();
 
         // Create real entry block (where code goes)
@@ -185,7 +185,7 @@ impl MirFunction {
             note: Some("virtual_entry".to_string()),
         });
 
-        MirFunction {
+        Function {
             name,
             params,
             return_type,
@@ -208,8 +208,8 @@ impl MirFunction {
     }
 }
 
-pub struct MirProgram {
-    pub functions: Vec<MirFunction>,
+pub struct Program {
+    pub functions: Vec<Function>,
 }
 
 // Example usage:
@@ -222,7 +222,7 @@ pub struct MirProgram {
 //         Instruction {
 //             dest: "x".to_string(),
 //             op: Opcode::Add,
-//             typ: MirType::F64,
+//             typ: Type::F64,
 //             args: ["a".to_string(), "b".to_string()],
 //         }
 //     ],

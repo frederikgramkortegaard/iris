@@ -1,5 +1,5 @@
 use crate::mir::{
-    BasicBlock, BlockId, Instruction, MirFunction, MirProgram, MirType, Operand, Reg, Terminator,
+    BasicBlock, BlockId, Instruction, Function, Program, Type, Operand, Reg, Terminator,
 };
 
 // Re-export DiagnosticCollector for convenience
@@ -17,11 +17,11 @@ pub trait MirVisitor {
     fn diagnostics_mut(&mut self) -> &mut DiagnosticCollector;
 
     // Program
-    fn visit_program(&mut self, program: &mut MirProgram) -> Self::Output {
+    fn visit_program(&mut self, program: &mut Program) -> Self::Output {
         self.walk_program(program)
     }
 
-    fn walk_program(&mut self, program: &mut MirProgram) -> Self::Output {
+    fn walk_program(&mut self, program: &mut Program) -> Self::Output {
         for function in &mut program.functions {
             self.visit_function(function);
         }
@@ -29,11 +29,11 @@ pub trait MirVisitor {
     }
 
     // Function
-    fn visit_function(&mut self, function: &mut MirFunction) -> Self::Output {
+    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
         self.walk_function(function)
     }
 
-    fn walk_function(&mut self, function: &mut MirFunction) -> Self::Output {
+    fn walk_function(&mut self, function: &mut Function) -> Self::Output {
         // Visit parameters
         for (reg, typ) in function.params.clone() {
             self.visit_param(reg, typ);
@@ -52,11 +52,11 @@ pub trait MirVisitor {
     }
 
     // Param
-    fn visit_param(&mut self, reg: Reg, typ: MirType) -> Self::Output {
+    fn visit_param(&mut self, reg: Reg, typ: Type) -> Self::Output {
         self.walk_param(reg, typ)
     }
 
-    fn walk_param(&mut self, _reg: Reg, _typ: MirType) -> Self::Output {
+    fn walk_param(&mut self, _reg: Reg, _typ: Type) -> Self::Output {
         Self::Output::default()
     }
 

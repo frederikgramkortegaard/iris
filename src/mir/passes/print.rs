@@ -1,7 +1,7 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{BasicBlock, BlockId, Instruction, MirFunction, MirProgram, Operand, Terminator};
+use crate::mir::{BasicBlock, BlockId, Instruction, Function, Program, Operand, Terminator};
 
 /// Prints the different Functions, Blocks, Instructions and Terminators in the MIR
 pub struct MirPrintingPass {
@@ -75,7 +75,7 @@ impl MirVisitor for MirPrintingPass {
         &mut self.diagnostics
     }
 
-    fn visit_program(&mut self, program: &mut MirProgram) -> Self::Output {
+    fn visit_program(&mut self, program: &mut Program) -> Self::Output {
         println!(
             "=== MIR Program ({} functions) ===\n",
             program.functions.len()
@@ -83,7 +83,7 @@ impl MirVisitor for MirPrintingPass {
         self.walk_program(program);
     }
 
-    fn visit_function(&mut self, function: &mut MirFunction) -> Self::Output {
+    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
         println!(
             "fn {}({} params: [{}]) -> {:?}:",
             function.name,
@@ -163,7 +163,7 @@ impl MirVisitor for MirPrintingPass {
 }
 
 impl MirPass for MirPrintingPass {
-    fn run(&mut self, program: &mut MirProgram) {
+    fn run(&mut self, program: &mut Program) {
         self.visit_program(program);
     }
 

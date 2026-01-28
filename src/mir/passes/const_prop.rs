@@ -1,7 +1,7 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{Instruction, MirFunction, MirProgram, Opcode, Operand, Reg};
+use crate::mir::{Instruction, Function, Program, Opcode, Operand, Reg};
 use std::collections::HashMap;
 
 pub struct MirConstPropPass {
@@ -39,7 +39,7 @@ impl MirVisitor for MirConstPropPass {
         &mut self.diagnostics
     }
 
-    fn visit_function(&mut self, function: &mut MirFunction) -> Self::Output {
+    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
         self.walk_function(function);
         self.constant_map.clear();
     }
@@ -87,7 +87,7 @@ impl MirVisitor for MirConstPropPass {
 }
 
 impl MirPass for MirConstPropPass {
-    fn run(&mut self, program: &mut MirProgram) {
+    fn run(&mut self, program: &mut Program) {
         self.visit_program(program);
     }
 

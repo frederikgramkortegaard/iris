@@ -1,8 +1,8 @@
 use crate::diagnostics::DiagnosticCollector;
-use crate::mir::MirProgram;
+use crate::mir::Program;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{BasicBlock, BlockId, MirFunction, MirType, Opcode, Operand, Reg, Terminator};
+use crate::mir::{BasicBlock, BlockId, Function, Type, Opcode, Operand, Reg, Terminator};
 use std::collections::{HashMap, HashSet};
 
 type InstructionIndex = usize;
@@ -39,7 +39,7 @@ impl MirDCEPass {
         matches!(op, Opcode::Call)
     }
 
-    fn propagate_worklist(&mut self, function: &MirFunction) {
+    fn propagate_worklist(&mut self, function: &Function) {
         while let Some(reg) = self.worklist.pop() {
             // Check regular instructions
             if let Some((block_id, idx)) = self.defmap.get(&reg) {
@@ -67,7 +67,7 @@ impl MirDCEPass {
             }
         }
     }
-    fn sweep(&self, function: &mut MirFunction) {
+    fn sweep(&self, function: &mut Function) {
         for block in &mut function.arena.blocks {
             // @NOTE : All of this `keep` stuff is just so we can println! every time something
             // is not retained, we should probably wrap this in a DEBUG flag or something
@@ -94,7 +94,7 @@ impl MirVisitor for MirDCEPass {
         &mut self.diagnostics
     }
 
-    fn visit_function(&mut self, function: &mut MirFunction) -> Self::Output {
+    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
         self.defmap.clear();
         self.phi_defmap.clear();
         self.live.clear();
@@ -167,14 +167,14 @@ impl MirVisitor for MirDCEPass {
         }
     }
 
-    fn visit_param(&mut self, reg: Reg, _type: MirType) -> Self::Output {
+    fn visit_param(&mut self, reg: Reg, _type: Type) -> Self::Output {
         // Parameters are special, they are ALWAYS considered live @TODO : Maybe it would be
         // possible to do some weird optimization here
         self.live.insert(reg);
     }
 }
 impl MirPass for MirDCEPass {
-    fn run(&mut self, program: &mut MirProgram) {
+    fn run(&mut self, program: &mut Program) {
         self.visit_program(program);
     }
 

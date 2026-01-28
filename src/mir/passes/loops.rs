@@ -2,8 +2,8 @@ use crate::diagnostics::DiagnosticCollector;
 use crate::mir::cfg;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::MirProgram;
-use crate::mir::{BasicBlock, BlockId, Instruction, MirFunction, Opcode, Operand, Reg, Terminator};
+use crate::mir::Program;
+use crate::mir::{BasicBlock, BlockId, Instruction, Function, Opcode, Operand, Reg, Terminator};
 use std::collections::{HashMap, HashSet};
 
 pub struct MirLoopPass {
@@ -39,7 +39,7 @@ impl MirLoopPass {
 
     fn find_back_edges(
         &self,
-        function: &MirFunction,
+        function: &Function,
         successors: &cfg::Successors,
         dominators: &cfg::DominatorSets,
     ) -> HashMap<Header, Vec<Latch>> {
@@ -115,7 +115,7 @@ impl MirLoopPass {
         body
     }
 
-    fn find_invariants(&mut self, function: &mut MirFunction, lop: &Loop) -> HashSet<Reg> {
+    fn find_invariants(&mut self, function: &mut Function, lop: &Loop) -> HashSet<Reg> {
         let mut invariant: HashSet<Reg> = self
             .defs
             .iter()
@@ -150,7 +150,7 @@ impl MirLoopPass {
     }
     fn licm(
         &mut self,
-        function: &mut MirFunction,
+        function: &mut Function,
         loops: &Vec<Loop>,
         preds: &cfg::Predecessors,
         dominators: &cfg::DominatorSets,
@@ -253,7 +253,7 @@ impl MirVisitor for MirLoopPass {
     fn diagnostics_mut(&mut self) -> &mut DiagnosticCollector {
         &mut self.diagnostics
     }
-    fn visit_function(&mut self, function: &mut MirFunction) -> Self::Output {
+    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
         // Fill the defs map
         self.defs.clear();
         self.walk_function(function);
@@ -296,7 +296,7 @@ impl MirVisitor for MirLoopPass {
     }
 }
 impl MirPass for MirLoopPass {
-    fn run(&mut self, program: &mut MirProgram) {
+    fn run(&mut self, program: &mut Program) {
         self.visit_program(program);
     }
 

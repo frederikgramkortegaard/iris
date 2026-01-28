@@ -1,4 +1,4 @@
-use crate::mir::{BlockId, MirFunction, Terminator};
+use crate::mir::{BlockId, Function, Terminator};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -8,7 +8,7 @@ pub type DominatorSets = HashMap<BlockId, HashSet<BlockId>>;
 pub type DominatorTree = HashMap<BlockId, BlockId>;
 pub type DominatorFrontier = HashMap<BlockId, HashSet<BlockId>>;
 
-pub fn compute_cfg(function: &MirFunction) -> (Predecessors, Successors) {
+pub fn compute_cfg(function: &Function) -> (Predecessors, Successors) {
     let mut predecessors: Predecessors = HashMap::new();
     let mut successors: Successors = HashMap::new();
 
@@ -112,7 +112,7 @@ pub fn compute_rpo(entry: BlockId, successors: &Successors) -> Vec<BlockId> {
 ///         The intersection of all of a nodes predecessors dominator sets, essentially maps
 ///         to the common ancestors list of node's predecessors.
 ///
-pub fn compute_dominators(function: &MirFunction, predecessors: &Predecessors) -> DominatorSets {
+pub fn compute_dominators(function: &Function, predecessors: &Predecessors) -> DominatorSets {
     let mut dom: DominatorSets = HashMap::new();
     let all_blocks: Vec<BlockId> = function.arena.iter().map(|(a, _)| a).collect();
 
@@ -181,7 +181,7 @@ pub fn compute_dominator_frontier(
 }
 
 pub fn compute_dominator_tree(
-    function: &MirFunction,
+    function: &Function,
     dominators: &DominatorSets,
     successors: &Successors,
 ) -> DominatorTree {

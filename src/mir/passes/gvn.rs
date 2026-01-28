@@ -1,9 +1,9 @@
 use crate::diagnostics::DiagnosticCollector;
-use crate::mir::MirProgram;
+use crate::mir::Program;
 use crate::mir::cfg;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{BlockId, MirFunction, Opcode, Operand, Reg};
+use crate::mir::{BlockId, Function, Opcode, Operand, Reg};
 use std::collections::HashMap;
 
 #[derive(Hash, PartialEq, Eq, Clone)]
@@ -60,7 +60,7 @@ impl MirGVNPass {
     fn walk_domtree(
         &mut self,
         child_dtree: &HashMap<BlockId, Vec<BlockId>>,
-        function: &mut MirFunction,
+        function: &mut Function,
         blockid: BlockId,
     ) {
         let mut added: Vec<GVNKey> = vec![];
@@ -101,7 +101,7 @@ impl MirVisitor for MirGVNPass {
         &mut self.diagnostics
     }
 
-    fn visit_function(&mut self, function: &mut MirFunction) -> Self::Output {
+    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
         let (preds, succs) = cfg::compute_cfg(function);
         let doms = cfg::compute_dominators(function, &preds);
         let dtree = cfg::compute_dominator_tree(function, &doms, &succs);
@@ -114,7 +114,7 @@ impl MirVisitor for MirGVNPass {
     }
 }
 impl MirPass for MirGVNPass {
-    fn run(&mut self, program: &mut MirProgram) {
+    fn run(&mut self, program: &mut Program) {
         self.visit_program(program);
     }
 

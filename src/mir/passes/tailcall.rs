@@ -1,8 +1,8 @@
 use crate::diagnostics::DiagnosticCollector;
-use crate::mir::MirProgram;
+use crate::mir::Program;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{Instruction, MirFunction, Opcode, Operand, Terminator};
+use crate::mir::{Instruction, Function, Opcode, Operand, Terminator};
 
 /// Dead Code Elimination pass
 pub struct MirTailCallPass {
@@ -35,7 +35,7 @@ impl MirVisitor for MirTailCallPass {
         &mut self.diagnostics
     }
 
-    fn visit_function(&mut self, function: &mut MirFunction) {
+    fn visit_function(&mut self, function: &mut Function) {
         for block in &mut function.arena.blocks {
             let Terminator::Ret {
                 value: Some(Operand::Reg(r)),
@@ -83,7 +83,7 @@ impl MirVisitor for MirTailCallPass {
     }
 }
 impl MirPass for MirTailCallPass {
-    fn run(&mut self, program: &mut MirProgram) {
+    fn run(&mut self, program: &mut Program) {
         self.visit_program(program);
     }
 

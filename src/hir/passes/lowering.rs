@@ -3,19 +3,19 @@ use crate::frontend::TokenType;
 use crate::hir::passes::HirPass;
 use crate::hir::visitor::{DiagnosticCollector, Visitor};
 use crate::mir::{
-    BasicBlock, BlockId, Instruction, MirFunction, MirProgram, MirType, Opcode, Operand, Reg,
-    Terminator,
+    BasicBlock, BlockId, Instruction, Opcode, Operand, Reg, Terminator,
 };
+use crate::mir;
 use crate::types::{BaseType, Function, Type};
 use std::collections::HashMap;
 
 /// Pass that lowers HIR (AST) to MIR
 pub struct LoweringPass {
     diagnostics: DiagnosticCollector,
-    functions: Vec<MirFunction>,
+    functions: Vec<mir::Function>,
     scope_stack: Vec<HashMap<String, Reg>>,
     register_cursor: usize,
-    current_function: Option<MirFunction>,
+    current_function: Option<mir::Function>,
     current_block: Option<BlockId>,
 }
 
@@ -38,9 +38,9 @@ impl LoweringPass {
     }
 
     /// Lower the HIR program to MIR and return the MIR functions
-    pub fn lower(&mut self, program: &mut Program) -> MirProgram {
+    pub fn lower(&mut self, program: &mut Program) -> mir::Program {
         self.visit_program(program);
-        MirProgram {
+        mir::Program {
             functions: std::mem::take(&mut self.functions),
         }
     }
@@ -120,15 +120,15 @@ impl LoweringPass {
     }
 
     /// Convert HIR Type to MIR Type
-    fn convert_type(&self, typ: &Type) -> MirType {
+    fn convert_type(&self, typ: &Type) -> mir::Type {
         match typ {
             Type::Base(base) => match base {
-                BaseType::F8 => MirType::F8,
-                BaseType::F16 => MirType::F16,
-                BaseType::F32 => MirType::F32,
-                BaseType::F64 => MirType::F64,
-                BaseType::Bool => MirType::I1,
-                BaseType::Void => MirType::Void, // We use this when lowering again, currently in
+                BaseType::F8 => mir::Type::F8,
+                BaseType::F16 => mir::Type::F16,
+                BaseType::F32 => mir::Type::F32,
+                BaseType::F64 => mir::Type::F64,
+                BaseType::Bool => mir::Type::I1,
+                BaseType::Void => mir::Type::Void, // We use this when lowering again, currently in
                 // our three-address mode we require a destination
                 // for any instruction, instead of making that
                 // optional we'll just know that later on Void
@@ -187,13 +187,13 @@ impl Visitor for LoweringPass {
         let return_type = self.convert_type(&function.return_type);
 
         // Create MIR function and set as current
-        let mut mir_func = MirFunction::new(function.name.clone(), params, return_type);
+        let mut mir_func = mir::Function::new(function.name.clone(), params, return_type);
 
         // @NOTE : This should be done in the previous parameter loop but that would require too
         // many changes for now, so we just do it here.
         //
         // Where we're doing is initializing the parameter registers into the map in the
-        // MirFunction which stores where a register was originally defined, aka. where it was
+        // Function which stores where a register was originally defined, aka. where it was
         // allocated the first time.  We use this for SSA Renaming later
         for (reg, _type) in &mir_func.params {
             mir_func
@@ -475,7 +475,7 @@ impl Visitor for LoweringPass {
                         self.add_instruction(Instruction {
                             dest,
                             op: Opcode::Eq,
-                            typ: MirType::I1,
+                            typ: mir::Type::I1,
                             args: vec![Operand::ImmF64(0.0), val],
                         });
                         return Some(Operand::Reg(dest));

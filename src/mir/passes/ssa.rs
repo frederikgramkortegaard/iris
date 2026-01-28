@@ -3,7 +3,7 @@ use crate::mir::cfg;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::{
-    BlockId, Instruction, MirFunction, MirProgram, MirType, Opcode, Operand, Reg, Terminator,
+    BlockId, Instruction, Function, Program, Type, Opcode, Operand, Reg, Terminator,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -25,12 +25,12 @@ impl MirSSAPass {
         }
     }
 
-    pub fn convert(&mut self, program: &mut MirProgram) {
+    pub fn convert(&mut self, program: &mut Program) {
         self.visit_program(program);
     }
 
     fn rename_variables_to_ssa(
-        function: &mut MirFunction,
+        function: &mut Function,
         dtree: &cfg::DominatorTree,
         successors: &cfg::Successors,
         original_registers: &HashMap<BlockId, Vec<Reg>>,
@@ -56,7 +56,7 @@ impl MirSSAPass {
         fn rename(
             counter: &mut HashMap<Reg, usize>,
             stack: &mut HashMap<Reg, Vec<usize>>,
-            function: &mut MirFunction,
+            function: &mut Function,
             entry: BlockId,
             children: &HashMap<BlockId, Vec<BlockId>>,
             successors: &cfg::Successors,
@@ -174,7 +174,7 @@ impl MirSSAPass {
     }
 
     fn insert_phi_nodes(
-        function: &mut MirFunction,
+        function: &mut Function,
         dfront: &cfg::DominatorFrontier,
     ) -> HashMap<BlockId, Vec<Reg>> {
         let empty = HashSet::new();
@@ -202,7 +202,7 @@ impl MirSSAPass {
                             .push(Instruction {
                                 dest: *reg,
                                 op: Opcode::Phi,
-                                typ: MirType::Void,
+                                typ: Type::Void,
                                 args: vec![],
                             });
 
@@ -228,11 +228,11 @@ impl MirVisitor for MirSSAPass {
         &mut self.diagnostics
     }
 
-    fn visit_program(&mut self, program: &mut MirProgram) -> Self::Output {
+    fn visit_program(&mut self, program: &mut Program) -> Self::Output {
         self.walk_program(program);
     }
 
-    fn visit_function(&mut self, function: &mut MirFunction) -> Self::Output {
+    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
         for (param_reg, _) in &function.params {
             function
                 .definitions
@@ -261,7 +261,7 @@ impl MirVisitor for MirSSAPass {
 }
 
 impl MirPass for MirSSAPass {
-    fn run(&mut self, program: &mut MirProgram) {
+    fn run(&mut self, program: &mut Program) {
         self.visit_program(program);
     }
 
