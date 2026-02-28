@@ -1,17 +1,19 @@
 use crate::frontend::{LexerContext, ParserContext};
-use crate::hir::passes::simplify::SimplifyPass;
 use crate::hir::passes::counting::CountingPass;
 use crate::hir::passes::lowering::LoweringPass;
 use crate::hir::passes::print::PrintPass;
+use crate::hir::passes::simplify::SimplifyPass;
 use crate::hir::passes::typechecking::TypecheckingPass;
 use crate::mir::passes::const_prop::MirConstPropPass;
 use crate::mir::passes::copy_prop::MirCopyPropPass;
 use crate::mir::passes::dce::MirDCEPass;
+use crate::mir::passes::deconstruct::MirSSADeconstructionPass;
 use crate::mir::passes::gvn::MirGVNPass;
 use crate::mir::passes::loops::MirLoopPass;
 use crate::mir::passes::print::MirPrintingPass;
 use crate::mir::passes::ssa::MirSSAPass;
 use crate::mir::passes::tailcall::MirTailCallPass;
+
 use crate::pass::RunPass;
 
 use std::fs;
@@ -58,12 +60,10 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut mir = lowering_pass.lower(&mut program);
 
     // Run MIR passes
-    mir.run_pass(&mut MirPrintingPass::with_message("Original"))?
-        .run_pass(&mut MirTailCallPass::new())?
-        .run_pass(&mut MirPrintingPass::with_message("TailCall"))?
-        .run_pass(&mut MirSSAPass::new())?
-        .run_pass(&mut MirPrintingPass::with_message("SSA"))?;
+    mir.run_pass(&mut MirTailCallPass::new())?
+        .run_pass(&mut MirSSAPass::new())?;
 
+    // Optimize in SSA form -- SSA makes copy/const prop and GVN maximally effective
     for _ in 0..3 {
         mir.run_pass(&mut MirConstPropPass::new())?
             .run_pass(&mut MirLoopPass::new())?
@@ -71,7 +71,10 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             .run_pass(&mut MirCopyPropPass::new())?
             .run_pass(&mut MirDCEPass::new())?;
     }
-    mir.run_pass(&mut MirPrintingPass::new())?;
+
+    mir.run_pass(&mut MirPrintingPass::with_message("Optimized SSA"))?
+        .run_pass(&mut MirSSADeconstructionPass::new())?
+        .run_pass(&mut MirPrintingPass::with_message("Out of SSA"))?;
 
     Ok(())
 }

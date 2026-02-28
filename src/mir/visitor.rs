@@ -1,5 +1,5 @@
 use crate::mir::{
-    BasicBlock, BlockId, Instruction, Function, Program, Type, Operand, Reg, Terminator,
+    BasicBlock, BlockId, Function, Instruction, Operand, Program, Reg, Terminator, Type,
 };
 
 // Re-export DiagnosticCollector for convenience
@@ -39,12 +39,12 @@ pub trait MirVisitor {
             self.visit_param(reg, typ);
         }
 
-        // Iterate over all blocks in the arena
-        let block_count = function.arena.len();
-        for i in 0..block_count {
-            let block_id = BlockId::new(i);
-            // Note: We need to get a mutable reference to the block
-            // This is safe because we're iterating by index
+        // Collect block IDs sorted for deterministic output
+        let mut block_ids: Vec<BlockId> = function.arena.iter().map(|(id, _)| id).collect();
+        block_ids.sort_by_key(|id| id.index());
+
+        // Visit each block
+        for block_id in block_ids {
             let block = function.arena.get_mut(block_id);
             self.visit_basicblock(block_id, block);
         }

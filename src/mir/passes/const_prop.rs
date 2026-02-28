@@ -1,7 +1,7 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{Instruction, Function, Program, Opcode, Operand, Reg};
+use crate::mir::{Function, Instruction, Opcode, Operand, Program, Reg};
 use std::collections::HashMap;
 
 pub struct MirConstPropPass {
@@ -62,11 +62,26 @@ impl MirVisitor for MirConstPropPass {
     // }
     fn visit_instruction(&mut self, instruction: &mut Instruction) -> Self::Output {
         for arg in &mut instruction.args {
-            if let Operand::Reg(r) = arg {
-                if let Some(constant) = self.constant_map.get(r) {
-                    println!("Replacing register r{} with constant {:?}", r, constant);
-                    *arg = constant.clone();
+            match arg {
+                Operand::Reg(r) => {
+                    if let Some(constant) = self.constant_map.get(r) {
+                        println!("Replacing register r{} with constant {:?}", r, constant);
+                        *arg = constant.clone();
+                    }
                 }
+                // Phi args are Pair(block, value) -- propagate into the inner value
+                Operand::Pair(_, op) => {
+                    if let Operand::Reg(r) = op.as_ref() {
+                        if let Some(constant) = self.constant_map.get(r) {
+                            println!(
+                                "Replacing (phi) register r{} with constant {:?}",
+                                r, constant
+                            );
+                            *op = Box::new(constant.clone());
+                        }
+                    }
+                }
+                _ => {}
             }
         }
 

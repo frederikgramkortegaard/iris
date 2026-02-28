@@ -102,7 +102,8 @@ pub enum Terminator {
 /// Arena for allocating basic blocks
 #[derive(Debug)]
 pub struct BlockArena {
-    pub blocks: Vec<BasicBlock>,
+    blocks: HashMap<usize, BasicBlock>,
+    next_id: usize,
 }
 
 impl Default for BlockArena {
@@ -113,32 +114,47 @@ impl Default for BlockArena {
 
 impl BlockArena {
     pub fn new() -> Self {
-        BlockArena { blocks: Vec::new() }
+        BlockArena {
+            blocks: HashMap::new(),
+            next_id: 0,
+        }
     }
 
     /// Allocate a new block and return its ID
     pub fn alloc(&mut self, block: BasicBlock) -> BlockId {
-        let id = BlockId(self.blocks.len());
-        self.blocks.push(block);
+        let id = BlockId(self.next_id);
+        self.next_id += 1;
+        self.blocks.insert(id.0, block);
         id
     }
 
     /// Get a reference to a block by ID
     pub fn get(&self, id: BlockId) -> &BasicBlock {
-        &self.blocks[id.0]
+        self.blocks.get(&id.0).expect("Invalid BlockId")
     }
 
     /// Get a mutable reference to a block by ID
     pub fn get_mut(&mut self, id: BlockId) -> &mut BasicBlock {
-        &mut self.blocks[id.0]
+        self.blocks.get_mut(&id.0).expect("Invalid BlockId")
     }
 
-    /// Iterate over all blocks with their IDs
+    /// Iterate over all blocks with their IDs (unordered)
     pub fn iter(&self) -> impl Iterator<Item = (BlockId, &BasicBlock)> {
+        self.blocks.iter().map(|(&id, block)| (BlockId(id), block))
+    }
+
+    /// Iterate mutably over all blocks with their IDs (unordered)
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (BlockId, &mut BasicBlock)> {
         self.blocks
-            .iter()
-            .enumerate()
-            .map(|(i, block)| (BlockId(i), block))
+            .iter_mut()
+            .map(|(&id, block)| (BlockId(id), block))
+    }
+
+    /// Iterate over all blocks sorted by BlockId (for deterministic output)
+    pub fn iter_sorted(&self) -> impl Iterator<Item = (BlockId, &BasicBlock)> {
+        let mut entries: Vec<_> = self.blocks.iter().collect();
+        entries.sort_by_key(|(id, _)| *id);
+        entries.into_iter().map(|(&id, block)| (BlockId(id), block))
     }
 
     /// Get the number of blocks
@@ -197,6 +213,24 @@ impl Function {
         }
     }
 
+    /// Look up the type of a register by scanning params and all instruction destinations.
+    /// Returns None if the register is not found.
+    pub fn reg_type(&self, reg: Reg) -> Option<Type> {
+        // Check function parameters first
+        if let Some((_, typ)) = self.params.iter().find(|(r, _)| *r == reg) {
+            return Some(*typ);
+        }
+        // Scan all instructions in all blocks
+        for (_, block) in self.arena.iter() {
+            for inst in &block.instructions {
+                if inst.dest == reg {
+                    return Some(inst.typ);
+                }
+            }
+        }
+        None
+    }
+
     /// Get a reference to a block
     pub fn block(&self, id: BlockId) -> &BasicBlock {
         self.arena.get(id)
@@ -239,4 +273,4 @@ pub struct Program {
 // // Iterate over all blocks
 // for (id, block) in func.arena.iter() {
 //     println!("Block {:?} has {} instructions", id, block.instructions.len());
-// }
+//

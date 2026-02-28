@@ -1,6 +1,7 @@
 pub mod const_prop;
 pub mod copy_prop;
 pub mod dce;
+pub mod deconstruct;
 pub mod gvn;
 pub mod loops;
 pub mod print;

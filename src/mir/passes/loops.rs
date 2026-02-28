@@ -3,7 +3,7 @@ use crate::mir::cfg;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::Program;
-use crate::mir::{BasicBlock, BlockId, Instruction, Function, Opcode, Operand, Reg, Terminator};
+use crate::mir::{BasicBlock, BlockId, Function, Instruction, Opcode, Operand, Reg, Terminator};
 use std::collections::{HashMap, HashSet};
 
 pub struct MirLoopPass {

@@ -2,9 +2,7 @@ use crate::diagnostics::DiagnosticCollector;
 use crate::mir::cfg;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{
-    BlockId, Instruction, Function, Program, Type, Opcode, Operand, Reg, Terminator,
-};
+use crate::mir::{BlockId, Function, Instruction, Opcode, Operand, Program, Reg, Terminator, Type};
 use std::collections::{HashMap, HashSet};
 
 /// Converts MIR to SSA Form
@@ -195,6 +193,7 @@ impl MirSSAPass {
                     if !has_phi.contains(&frontier) {
                         original_registers.entry(frontier).or_default().push(*reg);
 
+                        let typ = function.reg_type(*reg).unwrap_or(Type::Void);
                         function
                             .arena
                             .get_mut(frontier)
@@ -202,7 +201,7 @@ impl MirSSAPass {
                             .push(Instruction {
                                 dest: *reg,
                                 op: Opcode::Phi,
-                                typ: Type::Void,
+                                typ,
                                 args: vec![],
                             });
 

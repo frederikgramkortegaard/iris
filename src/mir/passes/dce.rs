@@ -1,8 +1,8 @@
 use crate::diagnostics::DiagnosticCollector;
-use crate::mir::Program;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{BasicBlock, BlockId, Function, Type, Opcode, Operand, Reg, Terminator};
+use crate::mir::Program;
+use crate::mir::{BasicBlock, BlockId, Function, Opcode, Operand, Reg, Terminator, Type};
 use std::collections::{HashMap, HashSet};
 
 type InstructionIndex = usize;
@@ -68,13 +68,18 @@ impl MirDCEPass {
         }
     }
     fn sweep(&self, function: &mut Function) {
-        for block in &mut function.arena.blocks {
-            // @NOTE : All of this `keep` stuff is just so we can println! every time something
-            // is not retained, we should probably wrap this in a DEBUG flag or something
+        for (_, block) in function.arena.iter_mut() {
             block.instructions.retain(|inst| {
                 let keep = self.live.contains(&inst.dest);
                 if !keep {
                     println!("Removing Instruction {:?} from block", inst);
+                }
+                keep
+            });
+            block.phi_nodes.retain(|phi| {
+                let keep = self.live.contains(&phi.dest);
+                if !keep {
+                    println!("Removing dead Phi {:?} from block", phi);
                 }
                 keep
             });

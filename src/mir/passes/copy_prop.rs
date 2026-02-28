@@ -1,7 +1,7 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{Instruction, Function, Program, Opcode, Operand, Reg, Terminator};
+use crate::mir::{Function, Instruction, Opcode, Operand, Program, Reg, Terminator};
 use std::collections::HashMap;
 
 pub struct MirCopyPropPass {
@@ -40,7 +40,7 @@ impl MirVisitor for MirCopyPropPass {
 
         // Before we can do proper copy-prop for phi nodes, we need to fully fill out the copy map.
         // Thus we have to do it after we've already visited all blocks and functions.
-        for block in &mut function.arena.blocks {
+        for (_, block) in function.arena.iter_mut() {
             for phi in &mut block
                 .phi_nodes
                 .iter_mut()

@@ -1,7 +1,7 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{BasicBlock, BlockId, Instruction, Function, Program, Operand, Terminator};
+use crate::mir::{BasicBlock, BlockId, Function, Instruction, Operand, Program, Terminator};
 
 /// Prints the different Functions, Blocks, Instructions and Terminators in the MIR
 pub struct MirPrintingPass {
