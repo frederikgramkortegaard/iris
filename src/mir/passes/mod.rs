@@ -1,5 +1,6 @@
 pub mod const_prop;
 pub mod copy_prop;
+pub mod dbe;
 pub mod dce;
 pub mod deconstruct;
 pub mod gvn;

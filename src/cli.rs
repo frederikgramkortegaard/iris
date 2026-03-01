@@ -1,3 +1,4 @@
+use crate::codegen::passes::wasm::MirToWasmPass;
 use crate::frontend::{LexerContext, ParserContext};
 use crate::hir::passes::counting::CountingPass;
 use crate::hir::passes::lowering::LoweringPass;
@@ -6,6 +7,7 @@ use crate::hir::passes::simplify::SimplifyPass;
 use crate::hir::passes::typechecking::TypecheckingPass;
 use crate::mir::passes::const_prop::MirConstPropPass;
 use crate::mir::passes::copy_prop::MirCopyPropPass;
+use crate::mir::passes::dbe::MirDeadBlockEliminationPass;
 use crate::mir::passes::dce::MirDCEPass;
 use crate::mir::passes::deconstruct::MirSSADeconstructionPass;
 use crate::mir::passes::gvn::MirGVNPass;
@@ -74,7 +76,11 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     mir.run_pass(&mut MirPrintingPass::with_message("Optimized SSA"))?
         .run_pass(&mut MirSSADeconstructionPass::new())?
+        .run_pass(&mut MirDeadBlockEliminationPass::new())?
         .run_pass(&mut MirPrintingPass::with_message("Out of SSA"))?;
+
+    let wasm = mir.run_pass_with_output(&mut MirToWasmPass::new())?;
+    println!("{:?}", wasm);
 
     Ok(())
 }

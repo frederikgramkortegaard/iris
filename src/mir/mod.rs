@@ -157,6 +157,11 @@ impl BlockArena {
         entries.into_iter().map(|(&id, block)| (BlockId(id), block))
     }
 
+    /// Remove a block by ID
+    pub fn remove(&mut self, id: BlockId) {
+        self.blocks.remove(&id.0);
+    }
+
     /// Get the number of blocks
     pub fn len(&self) -> usize {
         self.blocks.len()

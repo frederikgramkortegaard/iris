@@ -1,7 +1,7 @@
-pub mod simplify;
 pub mod counting;
 pub mod lowering;
 pub mod print;
+pub mod simplify;
 pub mod typechecking;
 
 use crate::ast::Program;

@@ -2,10 +2,8 @@ use crate::ast::{Expression, Program, Statement};
 use crate::frontend::TokenType;
 use crate::hir::passes::HirPass;
 use crate::hir::visitor::{DiagnosticCollector, Visitor};
-use crate::mir::{
-    BasicBlock, BlockId, Instruction, Opcode, Operand, Reg, Terminator,
-};
 use crate::mir;
+use crate::mir::{BasicBlock, BlockId, Instruction, Opcode, Operand, Reg, Terminator};
 use crate::types::{BaseType, Function, Type};
 use std::collections::HashMap;
 
@@ -183,7 +181,11 @@ impl Visitor for LoweringPass {
             let reg = self.alloc_variable(arg.name.clone());
             let mir_type = self.convert_type(&arg.typ);
             mir_func.params.push((reg, mir_type));
-            mir_func.definitions.entry(reg).or_default().insert(mir_func.entry);
+            mir_func
+                .definitions
+                .entry(reg)
+                .or_default()
+                .insert(mir_func.entry);
         }
 
         let entry_block = mir_func.entry;
