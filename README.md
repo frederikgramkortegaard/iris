@@ -1,8 +1,125 @@
 # Iris
 
-Optimizing compiler targeting WebAssembly, written in Rust. Features a multi-stage IR pipeline, SSA-based optimizations, and control flow structure recovery.
+A compiler for a custom language targeting WebAssembly, built from scratch in Rust with no external dependencies. It implements a full SSA-based optimization pipeline and uses [Ramsey's (2022)](https://dl.acm.org/doi/10.1145/3547621) algorithm to recover structured control flow from reducible CFGs, producing WebAssembly-compatible constructs without heuristic restructuring.
 
-## Architecture
+- SSA construction via iterated dominance frontiers and dominator tree renaming, with correct SSA deconstruction via parallel copies
+- Optimization passes: SCCP, GVN, LICM, copy propagation, DCE, tail call optimization, dead block elimination, register compaction, peephole optimization
+- [Ramsey (2022)](https://dl.acm.org/doi/10.1145/3547621) structure recovery for CFG -> structured WebAssembly
+- Visitor pattern for traversal and transformation of both HIR and MIR
+
+I'm writing up the internals in more depth at [frederikgramkortegaard.github.io/articles](https://frederikgramkortegaard.github.io/articles/).
+
+## Example
+
+```
+fn triangular(n: f64) -> f64 {
+  var s = 0
+  var i = 1
+  while (i <= n) {
+    s = s + i
+    i = i + 1
+  }
+  return s
+}
+```
+
+After CFG construction and SSA conversion, `s` and `i` each require a phi node at the loop header - one incoming value from the entry block and one from the loop back edge:
+
+```
+fn triangular(1 params: [r0]) -> F64:
+block0:
+    r1 = 0
+    r2 = 1
+    br block1
+
+block1:                                      ; loop header
+    r3 = phi [r1, block0] [r4, block2]       ; s
+    r5 = phi [r2, block0] [r6, block2]       ; i
+    r7 = Le I1 [r5, r0]                      ; i <= n
+    br_if r7, block2, block3
+
+block2:                                      ; loop body
+    r4 = Add F64 [r3, r5]                    ; s = s + i
+    r6 = Add F64 [r5, 1]                     ; i = i + 1
+    br block1
+
+block3:
+    ret r3
+```
+
+Ramsey's structure recovery converts the reducible CFG into structured control flow (`if/else`, `loop` blocks) that maps cleanly to WebAssembly:
+
+```wat
+(module
+  (func $triangular (export "triangular")
+    (param $r0 f64)
+    (result f64)
+    (local $r1 f64)
+    (local $r2 f64)
+    (local $r3 i32)
+    (local $r4 f64)
+    (local $r5 f64)
+    f64.const 0
+    local.set $r1
+    f64.const 1
+    local.set $r2
+    block
+      loop
+        local.get $r2
+        local.get $r0
+        f64.le
+        i32.eqz
+        br_if 1
+        local.get $r1
+        local.get $r2
+        f64.add
+        local.set $r4
+        local.get $r2
+        f64.const 1
+        f64.add
+        local.set $r5
+        local.get $r4
+        local.set $r1
+        local.get $r5
+        local.set $r2
+        br 0
+      end
+    end
+    local.get $r1
+    return
+  )
+)
+```
+
+## Optimization effect
+
+DCE combined with SCCP eliminates all values not reaching the return. After constant propagation and dead code removal, the function reduces to a single addition.
+
+```
+fn main() -> f64 {
+  var x = 5
+  var y = 10
+  var z = x + y
+
+  var dead1 = 100
+  var dead2 = dead1 + 1
+  var dead3 = dead2 * 2
+
+  return z
+}
+```
+
+```wat
+(func $main (export "main")
+  (result f64)
+  f64.const 5
+  f64.const 10
+  f64.add
+  return
+)
+```
+
+## Pipeline
 
 ```
 Source (.iris)
@@ -11,14 +128,17 @@ Source (.iris)
   |
   v
  HIR (High-level IR)
-  |-- Type Checking
+  |-- Type Checking & Inference
   |-- AST Simplification
   |
   v
- MIR (Mid-level IR)
-  |-- CFG Construction
-  |-- Dominator Trees & Frontiers
-  |-- SSA Construction (phi insertion + renaming)
+ MIR (Mid-level IR, SSA form)
+  |-- Analysis:
+  |     CFG Construction
+  |     Dominator Trees & Frontiers
+  |-- SSA:
+  |     Phi Insertion (iterated dominance frontiers)
+  |     Variable Renaming (dominator tree walk)
   |-- Optimization (iterated):
   |     Constant Propagation (SCCP)
   |     Loop Invariant Code Motion
@@ -26,13 +146,13 @@ Source (.iris)
   |     Copy Propagation
   |     Dead Code Elimination
   |-- Tail Call Optimization
-  |-- SSA Deconstruction
+  |-- SSA Deconstruction (parallel copies)
   |-- Register Compaction
   |-- Dead Block Elimination
   |
   v
  WAT (WebAssembly Text)
-  |-- Ramsey Structure Recovery (CFG -> structured control flow)
+  |-- Ramsey (2022) Structure Recovery
   |-- MIR -> WAT IR Lowering
   |-- Peephole Optimization
   |-- Text Emission
@@ -41,44 +161,25 @@ Source (.iris)
  .wat output
 ```
 
-## Key Features
+## Optimization passes
 
-### SSA Construction
-- **Phi Node Insertion** via iterated dominance frontiers
-- **Variable Renaming** using the dominator tree walk algorithm
-- **SSA Deconstruction** back to conventional form with parallel copies
+All passes operate on the MIR in SSA form and run to a fixed point in an iterative pipeline, since each pass exposes new opportunities for the next.
 
-### Control Flow Analysis
-- **Predecessor/Successor** graph construction
-- **Dominator Set** computation using iterative dataflow
-- **Dominator Tree** construction (immediate dominators)
-- **Dominance Frontier** calculation for phi placement
+**SCCP** (Sparse Conditional Constant Propagation) - tracks constants through the SSA def-use graph. If a branch condition is statically resolved, the unreachable path is marked dead.
 
-### Optimization Passes
-- **Constant Propagation (SCCP)** - tracks constant values through SSA form
-- **Loop Invariant Code Motion** - hoists loop-invariant computations
-- **Global Value Numbering (GVN)** - eliminates redundant computations
-- **Copy Propagation** - eliminates redundant copies
-- **Dead Code Elimination (DCE)** - removes unused instructions
-- **Dead Block Elimination** - removes unreachable blocks
-- **Tail Call Optimization** - rewrites tail-recursive calls into loops
+**GVN** (Global Value Numbering) - assigns value numbers across basic block boundaries. Instructions computing the same value get replaced with the dominating definition.
 
-### WebAssembly Backend
-- **Ramsey Structure Recovery** - recovers structured control flow (if/else, loops) from the CFG using the dominator tree
-- **WAT IR** - typed intermediate representation for WebAssembly instructions
-- **Peephole Optimization** - eliminates redundant local.set/local.get pairs
-- **Register Compaction** - remaps sparse register numbers to contiguous locals
+**LICM** (Loop Invariant Code Motion) - identifies instructions whose operands are all loop-external and hoists them to the loop preheader, using natural loop detection via back edges identified from the dominator tree.
 
-### Visitor Pattern
-Both HIR and MIR implement a visitor pattern for traversing and transforming the IR:
+**Copy Propagation** - walks def-use chains and replaces copies with their source operand, cleaning up chains that accumulate from earlier passes.
 
-```rust
-impl MirVisitor for MyPass {
-    fn visit_instruction(&mut self, inst: &mut Instruction) -> Self::Output {
-        // Transform or analyze instructions
-    }
-}
-```
+**DCE** (Dead Code Elimination) - works backwards from live outputs. In SSA form each value has exactly one definition, so use chains are explicit and dead instructions are unambiguous.
+
+**Tail Call Optimization** - detects tail-recursive calls in the MIR and rewrites them into direct branches before SSA deconstruction, eliminating stack growth from recursive calls.
+
+**Dead Block Elimination** - removes basic blocks that become unreachable once the CFG is finalized, typically after SCCP resolves conditional branches.
+
+SSA is deconstructed back to conventional form using parallel copies to correctly handle lost-copy and swap cases at phi node boundaries.
 
 ## Building
 
@@ -90,22 +191,17 @@ cargo build --release
 
 ```bash
 # Compile to WAT (prints to stdout)
-cargo run -- examples/factorial.iris
+cargo run -- examples/triangular.iris
 
 # Compile to WAT file
-cargo run -- examples/factorial.iris -o output.wat
-
-# Specify target (default: wasm)
-cargo run -- examples/factorial.iris -t wasm -o output.wat
+cargo run -- examples/triangular.iris -o output.wat
 ```
 
 ### Running with wasmtime
 
 ```bash
-# Install wasmtime
 brew install wasmtime
 
-# Compile and run
 cargo run -- examples/sum.iris -o sum.wat
 wasmtime run --invoke sum_range sum.wat 1.0 10.0
 # => 55
@@ -114,66 +210,7 @@ wasmtime run --invoke factorial examples/factorial.wat 5.0
 # => 120
 ```
 
-## Example
-
-```
-fn factorial(n: f64) -> f64 {
-    if (n <= 1) {
-        return 1
-    } else {
-        return n * factorial(n - 1)
-    }
-}
-```
-
-Optimized SSA form:
-```
-fn factorial(1 params: [r0]) -> F64:
-block0:
-    r5 = Le I1 [r0, 1]
-    br_if r5, block2, block3
-block2:
-    ret 1
-block3:
-    r6 = Sub F64 [r0, 1]
-    r7 = Call F64 [@factorial, r6]
-    r8 = Mul F64 [r0, r7]
-    ret r8
-```
-
-Compiled WAT output:
-```wat
-(module
-  (func $factorial (export "factorial")
-    (param $r0 f64)
-    (result f64)
-    (local $r1 i32)
-    (local $r2 f64)
-    (local $r3 f64)
-    (local $r4 f64)
-    local.get $r0
-    f64.const 1
-    f64.le
-    if
-      f64.const 1
-      return
-    else
-      local.get $r0
-      f64.const 1
-      f64.sub
-      call $factorial
-      local.set $r3
-      local.get $r0
-      local.get $r3
-      f64.mul
-      return
-    end
-    unreachable
-  )
-)
-```
-
-## Project Structure
+## Project structure
 
 ```
 src/
