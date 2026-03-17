@@ -1,4 +1,5 @@
-use crate::codegen::passes::wasm::MirToWasmPass;
+use crate::codegen::Emit;
+use crate::codegen::wasm::{lower, peephole};
 use crate::frontend::{LexerContext, ParserContext};
 use crate::hir::passes::counting::CountingPass;
 use crate::hir::passes::lowering::LoweringPass;
@@ -13,6 +14,7 @@ use crate::mir::passes::deconstruct::MirSSADeconstructionPass;
 use crate::mir::passes::gvn::MirGVNPass;
 use crate::mir::passes::loops::MirLoopPass;
 use crate::mir::passes::print::MirPrintingPass;
+use crate::mir::passes::reg_compact::RegCompactPass;
 use crate::mir::passes::ssa::MirSSAPass;
 use crate::mir::passes::tailcall::MirTailCallPass;
 
@@ -25,11 +27,35 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 {
-        eprintln!("Usage: {} <input-file>", args[0]);
+        eprintln!("Usage: {} <input-file> [-o <output-file>]", args[0]);
         std::process::exit(1);
     }
 
     let filename = &args[1];
+
+    // Parse -o flag
+    let output_path = args.iter().position(|a| a == "-o").map(|i| {
+        args.get(i + 1)
+            .unwrap_or_else(|| {
+                eprintln!("Error: -o requires an output file path");
+                std::process::exit(1);
+            })
+            .clone()
+    });
+
+    // Parse -t flag (target), default to "wasm"
+    let target = args
+        .iter()
+        .position(|a| a == "-t")
+        .map(|i| {
+            args.get(i + 1)
+                .unwrap_or_else(|| {
+                    eprintln!("Error: -t requires a target (e.g. wasm)");
+                    std::process::exit(1);
+                })
+                .clone()
+        })
+        .unwrap_or_else(|| "wasm".to_string());
 
     // Read the input file
     let input = fs::read_to_string(filename)
@@ -76,11 +102,25 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     mir.run_pass(&mut MirPrintingPass::with_message("Optimized SSA"))?
         .run_pass(&mut MirSSADeconstructionPass::new())?
+        .run_pass(&mut RegCompactPass::new())?
         .run_pass(&mut MirDeadBlockEliminationPass::new())?
         .run_pass(&mut MirPrintingPass::with_message("Out of SSA"))?;
 
-    let wasm = mir.run_pass_with_output(&mut MirToWasmPass::new())?;
-    println!("{:?}", wasm);
+    let output = match target.as_str() {
+        "wasm" => {
+            let mut wat_module = lower::lower(&mir);
+            peephole::peephole(&mut wat_module);
+            wat_module.emit()
+        }
+        _ => return Err(format!("Unknown target: {}", target).into()),
+    };
+
+    if let Some(path) = &output_path {
+        fs::write(path, &output)
+            .map_err(|e| format!("Failed to write output file '{}': {}", path, e))?;
+    } else {
+        println!("{}", output);
+    }
 
     Ok(())
 }

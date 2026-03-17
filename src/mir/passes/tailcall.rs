@@ -1,7 +1,7 @@
 use crate::diagnostics::DiagnosticCollector;
+use crate::mir::Program;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::Program;
 use crate::mir::{Function, Instruction, Opcode, Operand, Terminator};
 
 /// Dead Code Elimination pass

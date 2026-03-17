@@ -2,6 +2,7 @@ use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::{BlockId, Function, Program, Terminator};
+use std::collections::HashSet;
 
 pub struct MirDeadBlockEliminationPass {
     diagnostics: DiagnosticCollector,
@@ -21,6 +22,33 @@ impl MirDeadBlockEliminationPass {
     }
 }
 
+/// Walk reachable blocks from a starting block.
+fn reachable_blocks(function: &Function) -> HashSet<BlockId> {
+    let mut visited = HashSet::new();
+    let mut worklist = vec![function.virtual_entry];
+
+    while let Some(block_id) = worklist.pop() {
+        if !visited.insert(block_id) {
+            continue;
+        }
+        let block = function.arena.get(block_id);
+        match &block.terminator {
+            Terminator::Br { target } => {
+                worklist.push(*target);
+            }
+            Terminator::BrIf {
+                then_bb, else_bb, ..
+            } => {
+                worklist.push(*then_bb);
+                worklist.push(*else_bb);
+            }
+            Terminator::Ret { .. } | Terminator::Unreachable => {}
+        }
+    }
+
+    visited
+}
+
 impl MirVisitor for MirDeadBlockEliminationPass {
     type Output = ();
 
@@ -33,15 +61,13 @@ impl MirVisitor for MirDeadBlockEliminationPass {
     }
 
     fn visit_function(&mut self, function: &mut Function) {
+        let reachable = reachable_blocks(function);
+
         let dead: Vec<BlockId> = function
             .arena
             .iter()
-            .filter(|(id, block)| {
-                matches!(block.terminator, Terminator::Unreachable)
-                    && *id != function.entry
-                    && *id != function.virtual_entry
-            })
             .map(|(id, _)| id)
+            .filter(|id| !reachable.contains(id))
             .collect();
 
         for id in dead {

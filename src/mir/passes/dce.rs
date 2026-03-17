@@ -1,7 +1,7 @@
 use crate::diagnostics::DiagnosticCollector;
+use crate::mir::Program;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::Program;
 use crate::mir::{BasicBlock, BlockId, Function, Opcode, Operand, Reg, Terminator, Type};
 use std::collections::{HashMap, HashSet};
 

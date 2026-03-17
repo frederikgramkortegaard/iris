@@ -215,3 +215,19 @@ pub fn compute_dominator_tree(
 
     idom
 }
+
+pub fn dominated_subtree(dtree: &DominatorTree, root: BlockId) -> HashSet<BlockId> {
+    let mut dominated = HashSet::new();
+    let mut stack = vec![root];
+
+    while let Some(node) = stack.pop() {
+        dominated.insert(node);
+        for (&child, &parent) in dtree {
+            if parent == node && !dominated.contains(&child) {
+                stack.push(child);
+            }
+        }
+    }
+
+    dominated
+}
