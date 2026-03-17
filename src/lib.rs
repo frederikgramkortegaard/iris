@@ -1,7 +1,4 @@
 //! The Iris compiler library.
-//!
-//! This crate provides the core functionality for the Iris compiler,
-//! including lexical analysis, parsing, and code generation.
 
 pub mod ast;
 pub mod cli;
@@ -13,3 +10,15 @@ pub mod mir;
 pub mod pass;
 pub mod span;
 pub mod types;
+
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static VERBOSE: AtomicBool = AtomicBool::new(false);
+
+pub fn set_verbose(v: bool) {
+    VERBOSE.store(v, Ordering::Relaxed);
+}
+
+pub fn is_verbose() -> bool {
+    VERBOSE.load(Ordering::Relaxed)
+}

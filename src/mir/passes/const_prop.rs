@@ -65,7 +65,9 @@ impl MirVisitor for MirConstPropPass {
             match arg {
                 Operand::Reg(r) => {
                     if let Some(constant) = self.constant_map.get(r) {
-                        println!("Replacing register r{} with constant {:?}", r, constant);
+                        if crate::is_verbose() {
+                            println!("Replacing register r{} with constant {:?}", r, constant);
+                        }
                         *arg = constant.clone();
                     }
                 }
@@ -73,10 +75,12 @@ impl MirVisitor for MirConstPropPass {
                 Operand::Pair(_, op) => {
                     if let Operand::Reg(r) = op.as_ref() {
                         if let Some(constant) = self.constant_map.get(r) {
-                            println!(
-                                "Replacing (phi) register r{} with constant {:?}",
-                                r, constant
-                            );
+                            if crate::is_verbose() {
+                                println!(
+                                    "Replacing (phi) register r{} with constant {:?}",
+                                    r, constant
+                                );
+                            }
                             *op = Box::new(constant.clone());
                         }
                     }
@@ -92,11 +96,13 @@ impl MirVisitor for MirConstPropPass {
             self.constant_map
                 .entry(instruction.dest)
                 .or_insert(instruction.args[0].clone());
-            println!(
-                "Register r{} is being assigned as a constant with value{:?}, adding it to `constant_map`",
-                instruction.dest,
-                instruction.args[0].clone()
-            );
+            if crate::is_verbose() {
+                println!(
+                    "Register r{} is being assigned as a constant with value{:?}, adding it to `constant_map`",
+                    instruction.dest,
+                    instruction.args[0].clone()
+                );
+            }
         }
     }
 }

@@ -27,13 +27,16 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 {
-        eprintln!("Usage: {} <input-file> [-o <output-file>]", args[0]);
+        eprintln!("Usage: {} <input-file> [-o <output-file>] [-t <target>] [--verbose]", args[0]);
         std::process::exit(1);
     }
 
     let filename = &args[1];
 
-    // Parse -o flag
+    // Parse flags
+    let verbose = args.iter().any(|a| a == "--verbose");
+    crate::set_verbose(verbose);
+
     let output_path = args.iter().position(|a| a == "-o").map(|i| {
         args.get(i + 1)
             .unwrap_or_else(|| {
@@ -43,7 +46,6 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             .clone()
     });
 
-    // Parse -t flag (target), default to "wasm"
     let target = args
         .iter()
         .position(|a| a == "-t")
@@ -78,10 +80,12 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Run HIR passes
     program
         .run_pass(&mut CountingPass::new())?
-        .run_pass(&mut PrintPass::with_message("Original"))?
         .run_pass(&mut TypecheckingPass::new())?
-        .run_pass(&mut SimplifyPass::new())?
-        .run_pass(&mut PrintPass::with_message("AST Simplification"))?;
+        .run_pass(&mut SimplifyPass::new())?;
+
+    if verbose {
+        program.run_pass(&mut PrintPass::with_message("After HIR"))?;
+    }
 
     // Lower HIR to MIR
     let mut lowering_pass = LoweringPass::new();
@@ -91,7 +95,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     mir.run_pass(&mut MirTailCallPass::new())?
         .run_pass(&mut MirSSAPass::new())?;
 
-    // Optimize in SSA form -- SSA makes copy/const prop and GVN maximally effective
+    // Optimize in SSA form
     for _ in 0..3 {
         mir.run_pass(&mut MirConstPropPass::new())?
             .run_pass(&mut MirLoopPass::new())?
@@ -100,11 +104,17 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             .run_pass(&mut MirDCEPass::new())?;
     }
 
-    mir.run_pass(&mut MirPrintingPass::with_message("Optimized SSA"))?
-        .run_pass(&mut MirSSADeconstructionPass::new())?
+    if verbose {
+        mir.run_pass(&mut MirPrintingPass::with_message("Optimized SSA"))?;
+    }
+
+    mir.run_pass(&mut MirSSADeconstructionPass::new())?
         .run_pass(&mut RegCompactPass::new())?
-        .run_pass(&mut MirDeadBlockEliminationPass::new())?
-        .run_pass(&mut MirPrintingPass::with_message("Out of SSA"))?;
+        .run_pass(&mut MirDeadBlockEliminationPass::new())?;
+
+    if verbose {
+        mir.run_pass(&mut MirPrintingPass::with_message("Out of SSA"))?;
+    }
 
     let output = match target.as_str() {
         "wasm" => {

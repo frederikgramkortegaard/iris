@@ -240,19 +240,27 @@ impl MirVisitor for MirSSAPass {
                 .insert(function.virtual_entry);
         }
 
-        println!("Function: '{}'", function.name);
+        if crate::is_verbose() {
+            println!("Function: '{}'", function.name);
+        }
         let (predecessors, successors) = cfg::compute_cfg(function);
         let dominators = cfg::compute_dominators(function, &predecessors);
 
-        println!("Dominators:");
-        for (b, s) in &dominators {
-            println!("{:?}; {:?}", b, s);
+        if crate::is_verbose() {
+            println!("Dominators:");
+            for (b, s) in &dominators {
+                println!("{:?}; {:?}", b, s);
+            }
         }
         let dtree = cfg::compute_dominator_tree(function, &dominators, &successors);
-        println!("Dominator Tree (map)\n{:?}", dtree);
+        if crate::is_verbose() {
+            println!("Dominator Tree (map)\n{:?}", dtree);
+        }
 
         let dfront = cfg::compute_dominator_frontier(&dtree, &predecessors);
-        println!("Dominator Frontier (set)\n{:?}", dfront);
+        if crate::is_verbose() {
+            println!("Dominator Frontier (set)\n{:?}", dfront);
+        }
 
         let original_registers = Self::insert_phi_nodes(function, &dfront);
         Self::rename_variables_to_ssa(function, &dtree, &successors, &original_registers);

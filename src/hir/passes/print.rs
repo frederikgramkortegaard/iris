@@ -25,12 +25,16 @@ impl PrintPass {
     }
 
     pub fn with_message(message: impl Into<String>) -> Self {
-        println!("{}", message.into());
+        if crate::is_verbose() {
+            println!("{}", message.into());
+        }
         Self::new()
     }
 
     fn print(&self, msg: &str) {
-        println!("{}{}", "  ".repeat(self.indent), msg);
+        if crate::is_verbose() {
+            println!("{}{}", "  ".repeat(self.indent), msg);
+        }
     }
 
     fn format_span(span: &Span) -> String {

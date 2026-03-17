@@ -71,14 +71,14 @@ impl MirDCEPass {
         for (_, block) in function.arena.iter_mut() {
             block.instructions.retain(|inst| {
                 let keep = self.live.contains(&inst.dest);
-                if !keep {
+                if !keep && crate::is_verbose() {
                     println!("Removing Instruction {:?} from block", inst);
                 }
                 keep
             });
             block.phi_nodes.retain(|phi| {
                 let keep = self.live.contains(&phi.dest);
-                if !keep {
+                if !keep && crate::is_verbose() {
                     println!("Removing dead Phi {:?} from block", phi);
                 }
                 keep
@@ -106,18 +106,22 @@ impl MirVisitor for MirDCEPass {
         self.worklist.clear();
 
         self.walk_function(function);
-        println!(
-            "Function: {}:\ndefmap: {:?}\nlive: {:?}\nworklist: {:?}\n\n",
-            function.name, self.defmap, self.live, self.worklist
-        );
+        if crate::is_verbose() {
+            println!(
+                "Function: {}:\ndefmap: {:?}\nlive: {:?}\nworklist: {:?}\n\n",
+                function.name, self.defmap, self.live, self.worklist
+            );
+        }
 
         self.propagate_worklist(function);
 
         self.sweep(function);
-        println!(
-            "Function: {}:\ndefmap: {:?}\nlive: {:?}\nworklist: {:?}\n\n",
-            function.name, self.defmap, self.live, self.worklist
-        );
+        if crate::is_verbose() {
+            println!(
+                "Function: {}:\ndefmap: {:?}\nlive: {:?}\nworklist: {:?}\n\n",
+                function.name, self.defmap, self.live, self.worklist
+            );
+        }
     }
 
     fn visit_basicblock(&mut self, block_id: BlockId, block: &mut BasicBlock) -> Self::Output {

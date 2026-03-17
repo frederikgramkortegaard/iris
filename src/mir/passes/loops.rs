@@ -145,7 +145,9 @@ impl MirLoopPass {
             }
         }
 
-        println!("Found following invariants in {:?}: {:?}", lop, invariant);
+        if crate::is_verbose() {
+            println!("Found following invariants in {:?}: {:?}", lop, invariant);
+        }
         invariant
     }
     fn licm(
@@ -235,7 +237,9 @@ impl MirLoopPass {
                 }
                 // Append in forward order
                 for inst in hoisted {
-                    println!("Moving Instruction {:?} from {:?} to Preheader", inst, id);
+                    if crate::is_verbose() {
+                        println!("Moving Instruction {:?} from {:?} to Preheader", inst, id);
+                    }
                     function.block_mut(preheader).instructions.push(inst);
                 }
             }
@@ -261,7 +265,9 @@ impl MirVisitor for MirLoopPass {
             self.defs.insert(*reg, function.virtual_entry);
         }
 
-        println!("Function: '{}'", function.name);
+        if crate::is_verbose() {
+            println!("Function: '{}'", function.name);
+        }
         let (predecessors, successors) = cfg::compute_cfg(function);
         let dominators = cfg::compute_dominators(function, &predecessors);
 

@@ -57,8 +57,10 @@ fn print_diagnostics(diagnostics: &DiagnosticCollector) -> Result<(), Box<dyn st
     for warning in &diagnostics.warnings {
         eprintln!("Warning: {}", warning);
     }
-    for info in &diagnostics.info {
-        println!("Info: {}", info);
+    if crate::is_verbose() {
+        for info in &diagnostics.info {
+            println!("Info: {}", info);
+        }
     }
 
     if diagnostics.has_errors() {
