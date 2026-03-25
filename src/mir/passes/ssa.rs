@@ -155,7 +155,10 @@ impl MirSSAPass {
 
             // Pop everything we pushed in this block
             for reg in pushed {
-                stack.get_mut(&reg).expect("register must have stack entry").pop();
+                stack
+                    .get_mut(&reg)
+                    .expect("register must have stack entry")
+                    .pop();
             }
         }
 

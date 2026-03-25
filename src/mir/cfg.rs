@@ -22,17 +22,35 @@ pub fn compute_cfg(function: &Function) -> (Predecessors, Successors) {
         match &block.terminator {
             Terminator::Br { target } => {
                 // block_id -> target
-                successors.get_mut(&block_id).expect("block pre-inserted").push(*target);
-                predecessors.get_mut(target).expect("block pre-inserted").push(block_id);
+                successors
+                    .get_mut(&block_id)
+                    .expect("block pre-inserted")
+                    .push(*target);
+                predecessors
+                    .get_mut(target)
+                    .expect("block pre-inserted")
+                    .push(block_id);
             }
             Terminator::BrIf {
                 then_bb, else_bb, ..
             } => {
                 // block_id -> then_bb, else_bb
-                successors.get_mut(&block_id).expect("block pre-inserted").push(*then_bb);
-                successors.get_mut(&block_id).expect("block pre-inserted").push(*else_bb);
-                predecessors.get_mut(then_bb).expect("block pre-inserted").push(block_id);
-                predecessors.get_mut(else_bb).expect("block pre-inserted").push(block_id);
+                successors
+                    .get_mut(&block_id)
+                    .expect("block pre-inserted")
+                    .push(*then_bb);
+                successors
+                    .get_mut(&block_id)
+                    .expect("block pre-inserted")
+                    .push(*else_bb);
+                predecessors
+                    .get_mut(then_bb)
+                    .expect("block pre-inserted")
+                    .push(block_id);
+                predecessors
+                    .get_mut(else_bb)
+                    .expect("block pre-inserted")
+                    .push(block_id);
             }
             _ => {}
         }
@@ -57,7 +75,10 @@ pub fn compute_rpo(entry: BlockId, successors: &Successors) -> Vec<BlockId> {
         }
 
         visited.insert(block_id);
-        for s in successors.get(&block_id).expect("block must exist in successors") {
+        for s in successors
+            .get(&block_id)
+            .expect("block must exist in successors")
+        {
             dfs(successors, visited, rpo, *s);
         }
         rpo.push(block_id);
@@ -130,15 +151,24 @@ pub fn compute_dominators(function: &Function, predecessors: &Predecessors) -> D
             if node == function.virtual_entry {
                 continue;
             }
-            let preds = predecessors.get(&node).expect("block must have predecessors entry");
+            let preds = predecessors
+                .get(&node)
+                .expect("block must have predecessors entry");
 
             if preds.is_empty() {
                 continue;
             }
 
-            let mut inter: HashSet<BlockId> = dom.get(&preds[0]).expect("predecessor must have dom set").clone();
+            let mut inter: HashSet<BlockId> = dom
+                .get(&preds[0])
+                .expect("predecessor must have dom set")
+                .clone();
             for &p in &preds[1..] {
-                inter.retain(|x| dom.get(&p).expect("predecessor must have dom set").contains(x));
+                inter.retain(|x| {
+                    dom.get(&p)
+                        .expect("predecessor must have dom set")
+                        .contains(x)
+                });
             }
 
             inter.insert(node);

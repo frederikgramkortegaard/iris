@@ -81,7 +81,7 @@ impl MirVisitor for MirConstPropPass {
                                     r, constant
                                 );
                             }
-                            *op = Box::new(constant.clone());
+                            **op = constant.clone();
                         }
                     }
                 }

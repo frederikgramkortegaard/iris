@@ -1,5 +1,5 @@
-use crate::codegen::Emit;
 use crate::codegen::wasm::{lower, peephole};
+use crate::codegen::Emit;
 use crate::frontend::{LexerContext, ParserContext};
 use crate::hir::passes::counting::CountingPass;
 use crate::hir::passes::lowering::LoweringPass;
@@ -27,7 +27,10 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 {
-        eprintln!("Usage: {} <input-file> [-o <output-file>] [-t <target>] [--verbose]", args[0]);
+        eprintln!(
+            "Usage: {} <input-file> [-o <output-file>] [-t <target>] [--verbose]",
+            args[0]
+        );
         std::process::exit(1);
     }
 

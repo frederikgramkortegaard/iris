@@ -51,7 +51,10 @@ impl MirVisitor for MirCopyPropPass {
                         if let Operand::Reg(src) = op.as_mut() {
                             if let Some(&r) = self.copy_map.get(src) {
                                 if crate::is_verbose() {
-                                    println!("Replacing (phi) register r{} with constant {:?}", src, r);
+                                    println!(
+                                        "Replacing (phi) register r{} with constant {:?}",
+                                        src, r
+                                    );
                                 }
                                 *src = r; // mutate the register inside, keep the Pair
                             }

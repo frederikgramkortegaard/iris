@@ -1,5 +1,5 @@
-use crate::codegen::Emit;
 use crate::codegen::wasm::types::{WatFunction, WatInstruction, WatModule, WatType};
+use crate::codegen::Emit;
 
 fn emit_type(typ: &WatType) -> &'static str {
     match typ {

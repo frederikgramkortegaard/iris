@@ -1,6 +1,6 @@
 use crate::codegen::wasm::StructuredNode;
-use crate::mir::BlockId;
 use crate::mir::cfg::{DominatorTree, Successors};
+use crate::mir::BlockId;
 use std::collections::HashSet;
 
 /// Checks if `block_id` has a back edge to a node inside `region` using dominator info.

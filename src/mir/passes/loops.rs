@@ -1,8 +1,8 @@
 use crate::diagnostics::DiagnosticCollector;
-use crate::mir::Program;
 use crate::mir::cfg;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
+use crate::mir::Program;
 use crate::mir::{BasicBlock, BlockId, Function, Instruction, Opcode, Operand, Reg, Terminator};
 use std::collections::{HashMap, HashSet};
 
@@ -168,7 +168,11 @@ impl MirLoopPass {
                 let mut indices = vec![];
                 for (i, inst) in function.block(*block).instructions.iter().enumerate() {
                     if inv.contains(&inst.dest)
-                        && lop.body.contains(self.defs.get(&inst.dest).expect("instruction must have definition"))
+                        && lop.body.contains(
+                            self.defs
+                                .get(&inst.dest)
+                                .expect("instruction must have definition"),
+                        )
                     {
                         indices.push(i);
                     }
