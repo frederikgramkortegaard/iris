@@ -22,7 +22,7 @@ pub fn has_back_edge_in_region(
 pub fn ramsey_structuring(
     block_id: BlockId,
     dom_tree: &DominatorTree,
-    preds: &Predecessors,
+    _preds: &Predecessors,
     succs: &Successors,
 ) -> StructuredNode {
     // Region dominated by this block (subtree)

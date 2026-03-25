@@ -96,7 +96,7 @@ impl ParserContext {
         let mut globals: Vec<Variable> = Vec::new();
         let mut functions: Vec<Function> = Vec::new();
 
-        while self.peek().is_some() && self.peek().unwrap().tag != TokenType::Eof {
+        while self.peek().is_some_and(|t| t.tag != TokenType::Eof) {
             let statement = self.parse_statement()?;
             match statement {
                 Statement::Assignment {
@@ -220,7 +220,7 @@ impl ParserContext {
 
                 // Function definition
                 TokenType::Fn => {
-                    let fn_token = self.consume().unwrap(); // consume 'fn'
+                    let fn_token = self.consume().expect("token verified by peek"); // consume 'fn'
 
                     let name = self.consume_assert(
                         TokenType::Identifier,
@@ -314,7 +314,7 @@ impl ParserContext {
                 }
 
                 TokenType::LBrace => {
-                    let lbrace = self.consume().unwrap();
+                    let lbrace = self.consume().expect("token verified by peek");
 
                     let body = self.parse_block(&lbrace)?;
                     let rbrace =
@@ -325,7 +325,7 @@ impl ParserContext {
                     Ok(Statement::Block { block: body, span })
                 }
                 TokenType::Return => {
-                    let return_token = self.consume().unwrap();
+                    let return_token = self.consume().expect("token verified by peek");
                     // Check if there's an expression after return
                     let expr = match self.peek() {
                         // If we see a closing brace or EOF, it's a bare return
@@ -347,7 +347,7 @@ impl ParserContext {
                     })
                 }
                 TokenType::While => {
-                    let while_token = self.consume().unwrap();
+                    let while_token = self.consume().expect("token verified by peek");
                     self.consume_optional(TokenType::LParen);
                     let condition = Box::new(self.parse_expression()?);
                     self.consume_optional(TokenType::RParen);
@@ -374,7 +374,7 @@ impl ParserContext {
                     })
                 }
                 TokenType::If => {
-                    let if_token = self.consume().unwrap();
+                    let if_token = self.consume().expect("token verified by peek");
                     self.consume_optional(TokenType::LParen);
                     let condition = Box::new(self.parse_expression()?);
                     self.consume_optional(TokenType::RParen);
@@ -421,7 +421,7 @@ impl ParserContext {
                     match self.peek_offset(1) {
                         Some(t) if t.tag == TokenType::Assign => {
                             // Assignment: x = ...
-                            let identifier = self.consume().unwrap();
+                            let identifier = self.consume().expect("token verified by peek");
                             self.consume(); // consume '='
                             let right = self.parse_expression().ok().map(Box::new);
 
@@ -455,7 +455,7 @@ impl ParserContext {
 
                 // Variable Declarations and Assignments
                 TokenType::Var => {
-                    let var_token = self.consume().unwrap();
+                    let var_token = self.consume().expect("token verified by peek");
                     let identifier = self.consume_assert(
                         TokenType::Identifier,
                         "Expected an identifier after 'var'".to_string(),
@@ -525,7 +525,7 @@ impl ParserContext {
 
                 // Number literal
                 TokenType::Number => {
-                    let token = self.consume().unwrap();
+                    let token = self.consume().expect("token verified by peek");
                     let value = token.lexeme.parse::<f64>().map_err(|_| ParseError {
                         message: format!("Failed to parse number: {}", token.lexeme),
                     })?;
@@ -538,7 +538,7 @@ impl ParserContext {
 
                 // Boolean literals
                 TokenType::True => {
-                    let token = self.consume().unwrap();
+                    let token = self.consume().expect("token verified by peek");
                     Ok(Expression::Boolean {
                         value: true,
                         span: Span::from_token(&token),
@@ -546,7 +546,7 @@ impl ParserContext {
                     })
                 }
                 TokenType::False => {
-                    let token = self.consume().unwrap();
+                    let token = self.consume().expect("token verified by peek");
                     Ok(Expression::Boolean {
                         value: false,
                         span: Span::from_token(&token),
@@ -556,7 +556,7 @@ impl ParserContext {
 
                 // Identifier or function call
                 TokenType::Identifier => {
-                    let identifier = self.consume().unwrap();
+                    let identifier = self.consume().expect("token verified by peek");
 
                     // Check if it's a function call
                     if let Some(t) = self.peek() {
@@ -624,7 +624,7 @@ impl ParserContext {
         match self.peek() {
             Some(token) => match token.tag {
                 TokenType::Plus | TokenType::Minus | TokenType::Bang => {
-                    let op = self.consume().unwrap();
+                    let op = self.consume().expect("token verified by peek");
                     let expr = self.parse_unary()?;
                     let span = Span::merge(&Span::from_token(&op), &expr.span());
                     Ok(Expression::UnaryOp {
@@ -661,7 +661,7 @@ impl ParserContext {
             }
 
             // Consume the operator
-            let op = self.consume().unwrap();
+            let op = self.consume().expect("token verified by peek");
 
             // Parse the primary expression after the binary operator
             let mut rhs = Box::new(self.parse_unary()?);

@@ -168,7 +168,7 @@ impl MirLoopPass {
                 let mut indices = vec![];
                 for (i, inst) in function.block(*block).instructions.iter().enumerate() {
                     if inv.contains(&inst.dest)
-                        && lop.body.contains(self.defs.get(&inst.dest).unwrap())
+                        && lop.body.contains(self.defs.get(&inst.dest).expect("instruction must have definition"))
                     {
                         indices.push(i);
                     }

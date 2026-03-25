@@ -137,7 +137,7 @@ impl LoweringPass {
                   // should've solved this already.
             },
             _ => {
-                panic!("Not Yet Implemented")
+                unreachable!("pointer types not yet supported in MIR")
             }
         }
     }
@@ -227,7 +227,7 @@ impl Visitor for LoweringPass {
 
                 self.set_terminator(Terminator::Br { target: cond_block });
                 self.current_block = Some(cond_block);
-                let cond = self.visit_expression(condition).unwrap();
+                let cond = self.visit_expression(condition).expect("condition must produce value");
                 self.set_terminator_for_block(
                     cond_block,
                     Terminator::BrIf {
@@ -242,8 +242,8 @@ impl Visitor for LoweringPass {
 
                 // If current_block changed (nested loop), set its terminator too
                 if self.current_block != Some(then_block) {
-                    let block_id = self.current_block.unwrap();
-                    let block = self.current_function.as_ref().unwrap().block(block_id);
+                    let block_id = self.current_block.expect("must have current block");
+                    let block = self.current_function.as_ref().expect("must have current function").block(block_id);
 
                     // Only set terminator if it's still Unreachable (not a return)
                     if matches!(block.terminator, Terminator::Unreachable) {
@@ -262,7 +262,7 @@ impl Visitor for LoweringPass {
                 let els_block = self.allocate_block();
                 let merge_block = self.allocate_block();
 
-                let cond = self.visit_expression(condition).unwrap();
+                let cond = self.visit_expression(condition).expect("condition must produce value");
 
                 self.set_terminator(Terminator::BrIf {
                     cond,
@@ -282,8 +282,8 @@ impl Visitor for LoweringPass {
 
                 // If current_block changed (nested control flow), set its terminator too
                 if self.current_block != Some(then_block) {
-                    let block_id = self.current_block.unwrap();
-                    let block = self.current_function.as_ref().unwrap().block(block_id);
+                    let block_id = self.current_block.expect("must have current block");
+                    let block = self.current_function.as_ref().expect("must have current function").block(block_id);
 
                     // Only set terminator if it's still Unreachable (not a return)
                     if matches!(block.terminator, Terminator::Unreachable) {
@@ -307,8 +307,8 @@ impl Visitor for LoweringPass {
 
                 // If current_block changed (nested control flow), set its terminator too
                 if self.current_block != Some(els_block) {
-                    let block_id = self.current_block.unwrap();
-                    let block = self.current_function.as_ref().unwrap().block(block_id);
+                    let block_id = self.current_block.expect("must have current block");
+                    let block = self.current_function.as_ref().expect("must have current function").block(block_id);
 
                     // Only set terminator if it's still Unreachable (not a return)
                     if matches!(block.terminator, Terminator::Unreachable) {
@@ -339,7 +339,7 @@ impl Visitor for LoweringPass {
                 if let Some(expr) = right {
                     if let Some(value) = self.visit_expression(expr) {
                         // Get type from expression (set by typechecker)
-                        let mir_type = expr.typ().as_ref().map(|t| self.convert_type(t)).unwrap();
+                        let mir_type = expr.typ().as_ref().map(|t| self.convert_type(t)).expect("type must be set by typechecker");
 
                         self.add_instruction(Instruction {
                             dest: dest_reg,
@@ -430,7 +430,7 @@ impl Visitor for LoweringPass {
                 };
 
                 // Add instruction
-                let mir_type = typ.as_ref().map(|t| self.convert_type(t)).unwrap();
+                let mir_type = typ.as_ref().map(|t| self.convert_type(t)).expect("type must be set by typechecker");
                 self.add_instruction(Instruction {
                     dest: result_reg,
                     op: mir_op,
@@ -443,9 +443,9 @@ impl Visitor for LoweringPass {
             Expression::UnaryOp { left, op, .. } => {
                 match op.tag {
                     TokenType::Minus => {
-                        let val = self.visit_expression(left).unwrap();
+                        let val = self.visit_expression(left).expect("operand must produce value");
                         let dest = self.get_free_register();
-                        let mir_type = left.typ().as_ref().map(|t| self.convert_type(t)).unwrap();
+                        let mir_type = left.typ().as_ref().map(|t| self.convert_type(t)).expect("type must be set by typechecker");
                         self.add_instruction(Instruction {
                             dest,
                             op: Opcode::Sub,
@@ -455,7 +455,7 @@ impl Visitor for LoweringPass {
                         return Some(Operand::Reg(dest));
                     }
                     TokenType::Bang => {
-                        let val = self.visit_expression(left).unwrap();
+                        let val = self.visit_expression(left).expect("operand must produce value");
                         let dest = self.get_free_register();
                         self.add_instruction(Instruction {
                             dest,
@@ -481,12 +481,12 @@ impl Visitor for LoweringPass {
                 let mut operands: Vec<Operand> = Vec::new();
                 operands.push(Operand::Label(identifier.clone()));
                 for arg in args {
-                    operands.push(self.visit_expression(arg).unwrap());
+                    operands.push(self.visit_expression(arg).expect("argument must produce value"));
                 }
                 self.add_instruction(Instruction {
                     dest,
                     op: Opcode::Call,
-                    typ: typ.as_ref().map(|t| self.convert_type(t)).unwrap(),
+                    typ: typ.as_ref().map(|t| self.convert_type(t)).expect("type must be set by typechecker"),
                     args: operands,
                 });
                 Some(Operand::Reg(dest))
