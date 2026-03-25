@@ -136,7 +136,7 @@ impl LoweringPass {
                 } // We should never be here, type inference
                   // should've solved this already.
             },
-            Type::PointerType(_) => {
+            _ => {
                 panic!("Not Yet Implemented")
             }
         }

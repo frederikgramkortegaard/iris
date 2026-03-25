@@ -121,14 +121,13 @@ impl LexerContext {
         }
     }
 
-    /// Adds a token to the token list at the current position without advancing the cursor.
-    /// The token is tagged with the current row and column.
-    fn add_token(&mut self, tag: TokenType, lexeme: String) {
+    /// Adds a token to the token list with the given position.
+    fn add_token(&mut self, tag: TokenType, lexeme: String, row: usize, column: usize) {
         let token = Token {
             tag,
             lexeme,
-            row: self.row,
-            column: self.column,
+            row,
+            column,
         };
         self.tokens.push(token);
     }
@@ -137,7 +136,7 @@ impl LexerContext {
     /// This is a convenience method for single-use tokens where the lexeme length
     /// matches the number of characters to consume.
     fn push_token(&mut self, tag: TokenType, lexeme: String) {
-        self.add_token(tag, lexeme.clone());
+        self.add_token(tag, lexeme.clone(), self.row, self.column);
         self.advance_by(lexeme.len());
     }
 
@@ -269,6 +268,8 @@ impl LexerContext {
             // Numbers
             if c.is_ascii_digit() {
                 let start = lexer.cursor;
+                let start_row = lexer.row;
+                let start_column = lexer.column;
                 lexer.advance();
                 let mut has_dot = false;
 
@@ -284,13 +285,15 @@ impl LexerContext {
                 }
 
                 let lexeme = lexer.input[start..lexer.cursor].to_string();
-                lexer.add_token(TokenType::Number, lexeme);
+                lexer.add_token(TokenType::Number, lexeme, start_row, start_column);
                 continue;
             }
 
             // Identifiers and keywords
             if c.is_alphabetic() || c == '_' {
                 let start = lexer.cursor;
+                let start_row = lexer.row;
+                let start_column = lexer.column;
                 lexer.advance();
 
                 while let Some(next_c) = lexer.peek(0) {
@@ -322,7 +325,7 @@ impl LexerContext {
                     "bool" => TokenType::BoolType,
                     _ => TokenType::Identifier,
                 };
-                lexer.add_token(token_type, lexeme);
+                lexer.add_token(token_type, lexeme, start_row, start_column);
                 continue;
             }
 
@@ -334,7 +337,198 @@ impl LexerContext {
             });
         }
 
-        lexer.add_token(TokenType::Eof, String::new());
+        lexer.add_token(TokenType::Eof, String::new(), lexer.row, lexer.column);
         Ok(lexer.tokens)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn lex(input: &str) -> Vec<Token> {
+        LexerContext::lex(input).expect("lexing failed")
+    }
+
+    fn tags(input: &str) -> Vec<TokenType> {
+        lex(input).into_iter().map(|t| t.tag).collect()
+    }
+
+    #[test]
+    fn empty_input() {
+        assert_eq!(tags(""), vec![TokenType::Eof]);
+    }
+
+    #[test]
+    fn whitespace_only() {
+        assert_eq!(tags("   \n\t  "), vec![TokenType::Eof]);
+    }
+
+    #[test]
+    fn keywords() {
+        assert_eq!(
+            tags("fn extern if else then for in while return var true false"),
+            vec![
+                TokenType::Fn,
+                TokenType::Extern,
+                TokenType::If,
+                TokenType::Else,
+                TokenType::Then,
+                TokenType::For,
+                TokenType::In,
+                TokenType::While,
+                TokenType::Return,
+                TokenType::Var,
+                TokenType::True,
+                TokenType::False,
+                TokenType::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn type_keywords() {
+        assert_eq!(
+            tags("f8 f16 f32 f64 bool"),
+            vec![
+                TokenType::F8Type,
+                TokenType::F16Type,
+                TokenType::F32Type,
+                TokenType::F64Type,
+                TokenType::BoolType,
+                TokenType::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn identifiers() {
+        assert_eq!(
+            tags("foo _bar baz123 _123"),
+            vec![
+                TokenType::Identifier,
+                TokenType::Identifier,
+                TokenType::Identifier,
+                TokenType::Identifier,
+                TokenType::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn numbers() {
+        let tokens = lex("42 3.14 0.5 100");
+        assert_eq!(tokens[0].lexeme, "42");
+        assert_eq!(tokens[1].lexeme, "3.14");
+        assert_eq!(tokens[2].lexeme, "0.5");
+        assert_eq!(tokens[3].lexeme, "100");
+        assert!(tokens.iter().take(4).all(|t| t.tag == TokenType::Number));
+    }
+
+    #[test]
+    fn single_char_operators() {
+        assert_eq!(
+            tags("+ - * / < > = ! | & ^ % $ @ ~"),
+            vec![
+                TokenType::Plus,
+                TokenType::Minus,
+                TokenType::Star,
+                TokenType::Slash,
+                TokenType::Less,
+                TokenType::Greater,
+                TokenType::Assign,
+                TokenType::Bang,
+                TokenType::Pipe,
+                TokenType::Ampersand,
+                TokenType::Caret,
+                TokenType::Percent,
+                TokenType::Dollar,
+                TokenType::At,
+                TokenType::Tilde,
+                TokenType::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn multi_char_operators() {
+        assert_eq!(
+            tags("== != <= >= && || ->"),
+            vec![
+                TokenType::Equal,
+                TokenType::NotEqual,
+                TokenType::LessEqual,
+                TokenType::GreaterEqual,
+                TokenType::And,
+                TokenType::Or,
+                TokenType::Arrow,
+                TokenType::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn delimiters() {
+        assert_eq!(
+            tags("( ) { } , ; :"),
+            vec![
+                TokenType::LParen,
+                TokenType::RParen,
+                TokenType::LBrace,
+                TokenType::RBrace,
+                TokenType::Comma,
+                TokenType::Semicolon,
+                TokenType::Colon,
+                TokenType::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn comments_ignored() {
+        assert_eq!(
+            tags("foo # this is a comment\nbar"),
+            vec![TokenType::Identifier, TokenType::Identifier, TokenType::Eof]
+        );
+    }
+
+    #[test]
+    fn function_signature() {
+        assert_eq!(
+            tags("fn add(x: f64, y: f64) -> f64"),
+            vec![
+                TokenType::Fn,
+                TokenType::Identifier,
+                TokenType::LParen,
+                TokenType::Identifier,
+                TokenType::Colon,
+                TokenType::F64Type,
+                TokenType::Comma,
+                TokenType::Identifier,
+                TokenType::Colon,
+                TokenType::F64Type,
+                TokenType::RParen,
+                TokenType::Arrow,
+                TokenType::F64Type,
+                TokenType::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn location_tracking() {
+        let tokens = lex("foo\nbar");
+        assert_eq!(tokens[0].row, 0);
+        assert_eq!(tokens[0].column, 0);
+        assert_eq!(tokens[1].row, 1);
+        assert_eq!(tokens[1].column, 0);
+    }
+
+    #[test]
+    fn unexpected_character_error() {
+        let result = LexerContext::lex("foo § bar");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.message.contains("§"));
     }
 }

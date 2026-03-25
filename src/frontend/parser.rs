@@ -693,3 +693,204 @@ impl ParserContext {
         self.parse_binop_rhs(0, Box::new(lhs)).map(|b| *b)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::frontend::LexerContext;
+
+    fn parse(input: &str) -> Program {
+        let tokens = LexerContext::lex(input).expect("lexing failed");
+        ParserContext::new(tokens).parse().expect("parsing failed")
+    }
+
+    fn parse_err(input: &str) -> ParseError {
+        let tokens = LexerContext::lex(input).expect("lexing failed");
+        ParserContext::new(tokens).parse().expect_err("expected parse error")
+    }
+
+    // === Expression Tests ===
+
+    #[test]
+    fn number_literal() {
+        let prog = parse("fn main() { return 42 }");
+        let func = &prog.functions[0];
+        if let Statement::Return { expression: Some(expr), .. } = &func.body.statements[0] {
+            assert!(matches!(expr.as_ref(), Expression::Number { value, .. } if *value == 42.0));
+        } else {
+            panic!("expected return statement");
+        }
+    }
+
+    #[test]
+    fn boolean_literals() {
+        let prog = parse("fn main() { return true }");
+        let func = &prog.functions[0];
+        if let Statement::Return { expression: Some(expr), .. } = &func.body.statements[0] {
+            assert!(matches!(expr.as_ref(), Expression::Boolean { value: true, .. }));
+        } else {
+            panic!("expected return statement");
+        }
+    }
+
+    #[test]
+    fn binary_operations() {
+        let prog = parse("fn main() { return 1 + 2 * 3 }");
+        let func = &prog.functions[0];
+        if let Statement::Return { expression: Some(expr), .. } = &func.body.statements[0] {
+            // Should parse as 1 + (2 * 3) due to precedence
+            if let Expression::BinaryOp { left, op, right, .. } = expr.as_ref() {
+                assert_eq!(op.tag, TokenType::Plus);
+                assert!(matches!(left.as_ref(), Expression::Number { value, .. } if *value == 1.0));
+                assert!(matches!(right.as_ref(), Expression::BinaryOp { .. }));
+            } else {
+                panic!("expected binary op");
+            }
+        } else {
+            panic!("expected return statement");
+        }
+    }
+
+    #[test]
+    fn unary_operations() {
+        let prog = parse("fn main() { return -5 }");
+        let func = &prog.functions[0];
+        if let Statement::Return { expression: Some(expr), .. } = &func.body.statements[0] {
+            if let Expression::UnaryOp { op, left, .. } = expr.as_ref() {
+                assert_eq!(op.tag, TokenType::Minus);
+                assert!(matches!(left.as_ref(), Expression::Number { value, .. } if *value == 5.0));
+            } else {
+                panic!("expected unary op");
+            }
+        } else {
+            panic!("expected return statement");
+        }
+    }
+
+    #[test]
+    fn function_call() {
+        let prog = parse("fn main() { return foo(1, 2) }");
+        let func = &prog.functions[0];
+        if let Statement::Return { expression: Some(expr), .. } = &func.body.statements[0] {
+            if let Expression::Call { identifier, args, .. } = expr.as_ref() {
+                assert_eq!(identifier, "foo");
+                assert_eq!(args.len(), 2);
+            } else {
+                panic!("expected call");
+            }
+        } else {
+            panic!("expected return statement");
+        }
+    }
+
+    #[test]
+    fn parenthesized_expression() {
+        let prog = parse("fn main() { return (1 + 2) * 3 }");
+        let func = &prog.functions[0];
+        if let Statement::Return { expression: Some(expr), .. } = &func.body.statements[0] {
+            // Should parse as (1 + 2) * 3
+            if let Expression::BinaryOp { op, .. } = expr.as_ref() {
+                assert_eq!(op.tag, TokenType::Star);
+            } else {
+                panic!("expected binary op");
+            }
+        } else {
+            panic!("expected return statement");
+        }
+    }
+
+    // === Statement Tests ===
+
+    #[test]
+    fn function_definition() {
+        let prog = parse("fn add(x: f64, y: f64) -> f64 { return x + y }");
+        assert_eq!(prog.functions.len(), 1);
+        let func = &prog.functions[0];
+        assert_eq!(func.name, "add");
+        assert_eq!(func.args.len(), 2);
+        assert_eq!(func.args[0].name, "x");
+        assert_eq!(func.args[1].name, "y");
+    }
+
+    #[test]
+    fn function_no_return_type() {
+        let prog = parse("fn main() { }");
+        let func = &prog.functions[0];
+        assert!(matches!(func.return_type, Type::Base(BaseType::Void)));
+    }
+
+    #[test]
+    fn variable_declaration() {
+        let prog = parse("var x: f64 = 5");
+        assert_eq!(prog.globals.len(), 1);
+        assert_eq!(prog.globals[0].name, "x");
+    }
+
+    #[test]
+    fn variable_declaration_inferred() {
+        let prog = parse("var x = 5");
+        assert_eq!(prog.globals.len(), 1);
+        assert!(matches!(prog.globals[0].typ, Type::Base(BaseType::Auto)));
+    }
+
+    #[test]
+    fn if_statement() {
+        let prog = parse("fn main() { if true { return 1 } }");
+        let func = &prog.functions[0];
+        assert!(matches!(&func.body.statements[0], Statement::If { els: None, .. }));
+    }
+
+    #[test]
+    fn if_else_statement() {
+        let prog = parse("fn main() { if true { return 1 } else { return 2 } }");
+        let func = &prog.functions[0];
+        assert!(matches!(&func.body.statements[0], Statement::If { els: Some(_), .. }));
+    }
+
+    #[test]
+    fn while_statement() {
+        let prog = parse("fn main() { while true { return 1 } }");
+        let func = &prog.functions[0];
+        assert!(matches!(&func.body.statements[0], Statement::While { .. }));
+    }
+
+    #[test]
+    fn assignment() {
+        let prog = parse("fn main() { x = 5 }");
+        let func = &prog.functions[0];
+        if let Statement::Assignment { left, .. } = &func.body.statements[0] {
+            assert_eq!(left, "x");
+        } else {
+            panic!("expected assignment");
+        }
+    }
+
+    // === Type Tests ===
+
+    #[test]
+    fn pointer_type() {
+        let prog = parse("fn main(x: *f64) { }");
+        let func = &prog.functions[0];
+        assert!(matches!(&func.args[0].typ, Type::PointerType(_)));
+    }
+
+    // === Error Tests ===
+
+    #[test]
+    fn error_semicolon() {
+        let err = parse_err("fn main() { return 5; }");
+        assert!(err.message.contains("semicolon"));
+    }
+
+    #[test]
+    fn error_missing_brace() {
+        let err = parse_err("fn main() { return 5");
+        assert!(err.message.contains("Eof"));
+    }
+
+    #[test]
+    fn error_unexpected_top_level() {
+        let err = parse_err("return 5");
+        assert!(err.message.contains("top level"));
+    }
+}
