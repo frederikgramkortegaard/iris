@@ -3,7 +3,7 @@
 A compiler for a custom language targeting WebAssembly, built from scratch in Rust with no external dependencies. It implements a full SSA-based optimization pipeline and uses [Ramsey's (2022)](https://dl.acm.org/doi/10.1145/3547621) algorithm to recover structured control flow from reducible CFGs, producing WebAssembly-compatible constructs without heuristic restructuring.
 
 - SSA construction via iterated dominance frontiers and dominator tree renaming, with correct SSA deconstruction via parallel copies
-- Optimization passes: SCCP, GVN, LICM, copy propagation, DCE, tail call optimization, dead block elimination, register compaction, peephole optimization
+- Optimization passes: constant propagation, GVN, LICM, copy propagation, DCE, tail call optimization, dead block elimination, register compaction, peephole optimization
 - [Ramsey (2022)](https://dl.acm.org/doi/10.1145/3547621) structure recovery for CFG -> structured WebAssembly
 - Visitor pattern for traversal and transformation of both HIR and MIR
 
@@ -93,7 +93,7 @@ Ramsey's structure recovery converts the reducible CFG into structured control f
 
 ## Optimization effect
 
-DCE combined with SCCP eliminates all values not reaching the return. After constant propagation and dead code removal, the function reduces to a single addition.
+DCE combined with constant propagation eliminates all values not reaching the return. After constant propagation and dead code removal, the function reduces to a single addition.
 
 ```
 fn main() -> f64 {
@@ -140,7 +140,7 @@ Source (.iris)
   |     Phi Insertion (iterated dominance frontiers)
   |     Variable Renaming (dominator tree walk)
   |-- Optimization (iterated):
-  |     Constant Propagation (SCCP)
+  |     Constant Propagation
   |     Loop Invariant Code Motion
   |     Global Value Numbering
   |     Copy Propagation
@@ -165,7 +165,7 @@ Source (.iris)
 
 All passes operate on the MIR in SSA form and run to a fixed point in an iterative pipeline, since each pass exposes new opportunities for the next.
 
-**SCCP** (Sparse Conditional Constant Propagation) - tracks constants through the SSA def-use graph. If a branch condition is statically resolved, the unreachable path is marked dead.
+**Constant Propagation** - tracks constant values through copy instructions in the SSA def-use graph, replacing register uses with their constant values where known.
 
 **GVN** (Global Value Numbering) - assigns value numbers across basic block boundaries. Instructions computing the same value get replaced with the dominating definition.
 
@@ -177,7 +177,7 @@ All passes operate on the MIR in SSA form and run to a fixed point in an iterati
 
 **Tail Call Optimization** - detects tail-recursive calls in the MIR and rewrites them into direct branches before SSA deconstruction, eliminating stack growth from recursive calls.
 
-**Dead Block Elimination** - removes basic blocks that become unreachable once the CFG is finalized, typically after SCCP resolves conditional branches.
+**Dead Block Elimination** - removes basic blocks that become unreachable once the CFG is finalized.
 
 SSA is deconstructed back to conventional form using parallel copies to correctly handle lost-copy and swap cases at phi node boundaries.
 
@@ -231,7 +231,7 @@ src/
 |   +-- passes/
 |       |-- ssa.rs                   # Phi insertion, variable renaming
 |       |-- deconstruct.rs           # SSA deconstruction
-|       |-- const_prop.rs            # Constant propagation (SCCP)
+|       |-- const_prop.rs            # Constant propagation
 |       |-- gvn.rs                   # Global value numbering
 |       |-- copy_prop.rs             # Copy propagation
 |       |-- dce.rs                   # Dead code elimination

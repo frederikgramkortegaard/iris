@@ -1,1 +1,4 @@
 /target
+.claude/
+.DS_Store
+course/
