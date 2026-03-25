@@ -179,7 +179,9 @@ impl MirSSAPass {
 
         let mut original_registers: HashMap<BlockId, Vec<Reg>> = HashMap::new();
 
-        for (reg, definers) in function.definitions.clone().iter() {
+        let regs: Vec<_> = function.definitions.keys().copied().collect();
+        for reg in regs {
+            let definers = &function.definitions[&reg];
             // Single definition, no phi needed
             if definers.len() < 2 {
                 continue;
@@ -191,15 +193,15 @@ impl MirSSAPass {
             while let Some(block) = worklist.pop() {
                 for &frontier in dfront.get(&block).unwrap_or(&empty) {
                     if !has_phi.contains(&frontier) {
-                        original_registers.entry(frontier).or_default().push(*reg);
+                        original_registers.entry(frontier).or_default().push(reg);
 
-                        let typ = function.reg_type(*reg).unwrap_or(Type::Void);
+                        let typ = function.reg_type(reg).unwrap_or(Type::Void);
                         function
                             .arena
                             .get_mut(frontier)
                             .phi_nodes
                             .push(Instruction {
-                                dest: *reg,
+                                dest: reg,
                                 op: Opcode::Phi,
                                 typ,
                                 args: vec![],

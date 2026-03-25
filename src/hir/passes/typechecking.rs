@@ -155,7 +155,7 @@ impl Visitor for TypecheckingPass {
             // Auto with initializer - infer the type
             (Type::Base(BaseType::Auto), Some(init)) => {
                 if let Some(init_type) = self.visit_expression(init) {
-                    variable.typ = init_type.clone();
+                    variable.typ = init_type;
                 } else {
                     return None;
                 }
