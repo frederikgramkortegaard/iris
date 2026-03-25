@@ -283,7 +283,7 @@ fn lower_function(function: &Function) -> WatFunction {
     let (preds, succs) = compute_cfg(function);
     let dom_sets = compute_dominators(function, &preds);
     let dom_tree = compute_dominator_tree(function, &dom_sets, &succs);
-    let structure = ramsey_structuring(function.entry, &dom_tree, &preds, &succs);
+    let structure = ramsey_structuring(function.entry, &dom_tree, &succs);
 
     // Lower the structured tree into WAT instructions
     let body = lower_node(&structure, function);

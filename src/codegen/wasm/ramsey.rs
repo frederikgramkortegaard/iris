@@ -1,6 +1,6 @@
 use crate::codegen::wasm::StructuredNode;
 use crate::mir::BlockId;
-use crate::mir::cfg::{DominatorTree, Predecessors, Successors};
+use crate::mir::cfg::{DominatorTree, Successors};
 use std::collections::HashSet;
 
 /// Checks if `block_id` has a back edge to a node inside `region` using dominator info.
@@ -22,7 +22,6 @@ pub fn has_back_edge_in_region(
 pub fn ramsey_structuring(
     block_id: BlockId,
     dom_tree: &DominatorTree,
-    _preds: &Predecessors,
     succs: &Successors,
 ) -> StructuredNode {
     // Region dominated by this block (subtree)
@@ -55,11 +54,11 @@ pub fn ramsey_structuring(
 
         // Structure the loop body
         let body = if body_succs.len() == 1 {
-            ramsey_structuring(body_succs[0], dom_tree, preds, succs)
+            ramsey_structuring(body_succs[0], dom_tree, succs)
         } else {
             let nodes: Vec<_> = body_succs
                 .iter()
-                .map(|&s| ramsey_structuring(s, dom_tree, preds, succs))
+                .map(|&s| ramsey_structuring(s, dom_tree, succs))
                 .collect();
             StructuredNode::Sequence(nodes)
         };
@@ -73,20 +72,20 @@ pub fn ramsey_structuring(
         if exit_succs.is_empty() {
             loop_node
         } else if exit_succs.len() == 1 {
-            let exit = ramsey_structuring(exit_succs[0], dom_tree, preds, succs);
+            let exit = ramsey_structuring(exit_succs[0], dom_tree, succs);
             StructuredNode::Sequence(vec![loop_node, exit])
         } else {
             let mut seq = vec![loop_node];
             for s in exit_succs {
-                seq.push(ramsey_structuring(s, dom_tree, preds, succs));
+                seq.push(ramsey_structuring(s, dom_tree, succs));
             }
             StructuredNode::Sequence(seq)
         }
     } else if outs.len() == 2 {
         // This block is an if-else
 
-        let then_branch = ramsey_structuring(*outs[0], dom_tree, preds, succs);
-        let else_branch = ramsey_structuring(*outs[1], dom_tree, preds, succs);
+        let then_branch = ramsey_structuring(*outs[0], dom_tree, succs);
+        let else_branch = ramsey_structuring(*outs[1], dom_tree, succs);
         StructuredNode::If {
             cond: block_id,
             then_branch: Box::new(then_branch),
@@ -95,7 +94,7 @@ pub fn ramsey_structuring(
     } else if outs.len() == 1 {
         // This block is straight-line code
 
-        let next = ramsey_structuring(*outs[0], dom_tree, preds, succs);
+        let next = ramsey_structuring(*outs[0], dom_tree, succs);
         StructuredNode::Sequence(vec![StructuredNode::Block(block_id), next])
     } else {
         // No successors in region; leaf node
