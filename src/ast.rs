@@ -108,6 +108,7 @@ pub enum Statement {
         condition: Box<Expression>,
         body: Block,
         span: Span,
+        range: Option<Box<Expression>>,
     },
 
     For {

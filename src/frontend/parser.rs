@@ -416,6 +416,7 @@ impl ParserContext {
                         condition,
                         body,
                         span,
+                        range: None,
                     })
                 }
                 TokenType::If => {
