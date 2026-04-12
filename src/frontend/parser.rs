@@ -13,6 +13,7 @@ impl Expression {
             Expression::UnaryOp { span, .. } => *span,
             Expression::Call { span, .. } => *span,
             Expression::Variable { span, .. } => *span,
+            Expression::Range { span, .. } => *span,
         }
     }
 }
@@ -39,6 +40,7 @@ impl ParserContext {
 
     fn get_precedence(&self, token_type: &TokenType) -> i8 {
         match token_type {
+            TokenType::DoubleDots => 3,
             TokenType::Or => 5,
             TokenType::And => 6,
             TokenType::Equal | TokenType::NotEqual => 10,
@@ -107,6 +109,7 @@ impl ParserContext {
 
                     globals.push(Variable {
                         name: left,
+                        read_only: false,
                         typ,
                         initializer: right,
                     });
@@ -198,6 +201,7 @@ impl ParserContext {
                 Statement::Block { span, .. } => *span,
                 Statement::Return { span, .. } => *span,
                 Statement::Expression { span, .. } => *span,
+                Statement::For { span, .. } => *span,
             };
             Span::merge(&start_span, &end_span)
         } else {
@@ -266,6 +270,7 @@ impl ParserContext {
 
                         args.push(Variable {
                             name: arg_name.lexeme,
+                            read_only: false,
                             typ: arg_type,
                             initializer,
                         });
@@ -345,6 +350,46 @@ impl ParserContext {
                         expression: expr,
                         span,
                     })
+                }
+                TokenType::For => {
+                    let for_token = self.consume().expect("token verified by peek");
+
+                    // Check for "for ident in ....", basically a for loop where we catch the value
+                    // of enumeration
+
+                    let identifier = if self.peek().is_some_and(|t| t.tag == TokenType::Identifier) {
+                        let token = self.consume().expect("token verified by peek");
+                        self.consume_assert(TokenType::In, "Expected 'in' after identifier in for loop".to_string())?;
+                        Some(token.lexeme)
+                    } else {
+                        None
+                    };
+
+                    let range = Box::new(self.parse_expression().expect("No range was defined in the for loop"));
+
+                    let lbrace = self.consume_assert(
+                        TokenType::LBrace,
+                        "Missing { after while conditional".to_string(),
+                    )?;
+
+                    let body = self.parse_block(&lbrace)?;
+
+                    let rbrace = self.consume_assert(
+                        TokenType::RBrace,
+                        "Missing } after while body".to_string(),
+                    )?;
+
+                    let span =
+                        Span::merge(&Span::from_token(&for_token), &Span::from_token(&rbrace));
+
+
+                    Ok(Statement::For {
+                        ident: identifier,
+                        range,
+                        body,
+                        span,
+                    })
+
                 }
                 TokenType::While => {
                     let while_token = self.consume().expect("token verified by peek");
@@ -678,13 +723,21 @@ impl ParserContext {
 
             // Merge LHS and RHS
             let span = Span::merge(&lhs.span(), &rhs.span());
-            lhs = Box::new(Expression::BinaryOp {
-                left: lhs,
-                op,
-                right: rhs,
-                span,
-                typ: None,
-            });
+            lhs = match op.tag {
+                TokenType::DoubleDots => Box::new(Expression::Range {
+                    start: lhs,
+                    end: rhs,
+                    span,
+                    typ: None,
+                }),
+                _ => Box::new(Expression::BinaryOp {
+                    left: lhs,
+                    op,
+                    right: rhs,
+                    span,
+                    typ: None,
+                }),
+            };
         }
     }
 
@@ -933,5 +986,47 @@ mod tests {
     fn error_unexpected_top_level() {
         let err = parse_err("return 5");
         assert!(err.message.contains("top level"));
+    }
+
+    // === For Loop Tests ===
+
+    #[test]
+    fn for_loop_with_identifier() {
+        let prog = parse("fn main() { for i in 0..10 { return i } }");
+        let func = &prog.functions[0];
+        if let Statement::For { ident, range, .. } = &func.body.statements[0] {
+            assert_eq!(ident.as_ref().unwrap(), "i");
+            assert!(matches!(range.as_ref(), Expression::Range { .. }));
+        } else {
+            panic!("expected for statement");
+        }
+    }
+
+    #[test]
+    fn for_loop_without_identifier() {
+        let prog = parse("fn main() { for 0..5 { return 1 } }");
+        let func = &prog.functions[0];
+        if let Statement::For { ident, range, .. } = &func.body.statements[0] {
+            assert!(ident.is_none());
+            assert!(matches!(range.as_ref(), Expression::Range { .. }));
+        } else {
+            panic!("expected for statement");
+        }
+    }
+
+    #[test]
+    fn for_loop_range_bounds() {
+        let prog = parse("fn main() { for x in 1..100 { return x } }");
+        let func = &prog.functions[0];
+        if let Statement::For { range, .. } = &func.body.statements[0] {
+            if let Expression::Range { start, end, .. } = range.as_ref() {
+                assert!(matches!(start.as_ref(), Expression::Number { value, .. } if *value == 1.0));
+                assert!(matches!(end.as_ref(), Expression::Number { value, .. } if *value == 100.0));
+            } else {
+                panic!("expected range expression");
+            }
+        } else {
+            panic!("expected for statement");
+        }
     }
 }

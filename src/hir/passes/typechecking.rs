@@ -233,6 +233,7 @@ impl Visitor for TypecheckingPass {
                                 self.add_variable_to_current_scope(Variable {
                                     name: left.clone(),
                                     typ: right_type,
+                                    read_only: false,
                                     initializer: right.clone(),
                                 })
                             }
@@ -260,6 +261,7 @@ impl Visitor for TypecheckingPass {
                                     name: left.clone(),
                                     typ: concrete_type.clone(),
                                     initializer: right.clone(),
+                                    read_only: false,
                                 })
                             }
 
@@ -268,6 +270,7 @@ impl Visitor for TypecheckingPass {
                                 name: left.clone(),
                                 typ: concrete_type.clone(),
                                 initializer: None,
+                                read_only: false,
                             }),
                         }
                     }
@@ -279,6 +282,12 @@ impl Visitor for TypecheckingPass {
                                 .error(format!("Cannot assign to undeclared variable '{}'", left));
                             return None;
                         };
+
+                        if var.read_only {
+                            self.diagnostics_mut()
+                                .error(format!("Cannot assign to a read-only variable '{}' note, this can be e.g. the identifier specified in a for-loop", left));
+                            return None;
+                        }
 
                         if let Some(r) = right.as_mut() {
                             let right_type = self.visit_expression(r)?;
@@ -324,6 +333,39 @@ impl Visitor for TypecheckingPass {
                     self.scope_stack.pop();
                 }
             }
+
+            Statement::For {
+                ident, range, body, ..
+            } => {
+                // @TODO : this could probably done in parsing instead of typechecking
+                if !matches!(range.as_ref(), Expression::Range { .. }) {
+                    self.diagnostics_mut()
+                        .error("For loop requires a range expression".to_string());
+                    return None;
+                }
+                let range_type = self.visit_expression(range)?;
+
+                // Create and push scope for while body
+                let for_scope = Rc::new(RefCell::new(Scope::new(self.allocate_scope_id())));
+                body.scope = Some(Rc::clone(&for_scope));
+                self.scope_stack.push(for_scope);
+
+                // If we have an identifier we assign to the range, e.g. "for ID in range" then we
+                // add ID to the new scope we made in the for loop, it will have the same type as
+                // the range elements have
+                if let Some(id) = ident {
+                    let elem_type = range_type.clone();
+
+                    self.add_variable_to_current_scope(Variable {
+                        name: id.clone(),
+                        typ: elem_type,
+                        initializer: None,
+                        read_only: true,
+                    })
+                }
+                self.visit_block(body);
+                self.scope_stack.pop();
+            }
             Statement::While {
                 condition, body, ..
             } => {
@@ -354,6 +396,21 @@ impl Visitor for TypecheckingPass {
 
     fn visit_expression(&mut self, expression: &mut Expression) -> Self::Output {
         match expression {
+            Expression::Range {
+                start, end, typ, ..
+            } => {
+                let start_type = self.visit_expression(start)?;
+                let end_type = self.visit_expression(end)?;
+                if !start_type.is_equal(&end_type) {
+                    self.diagnostics_mut().error(
+                        "Both start and end need to be the same type in a range".to_string(),
+                    );
+                    None
+                } else {
+                    *typ = Some(start_type.clone());
+                    Some(start_type)
+                }
+            }
             Expression::Variable {
                 name: identifier,
                 typ,
@@ -475,5 +532,39 @@ impl HirPass for TypecheckingPass {
 
     fn diagnostics(&self) -> &DiagnosticCollector {
         &self.diagnostics
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::frontend::{LexerContext, ParserContext};
+    use crate::hir::passes::HirPass;
+
+    fn typecheck(input: &str) -> TypecheckingPass {
+        let tokens = LexerContext::lex(input).expect("lexing failed");
+        let mut program = ParserContext::new(tokens).parse().expect("parsing failed");
+        let mut pass = TypecheckingPass::new();
+        pass.run(&mut program);
+        pass
+    }
+
+    fn has_error_containing(pass: &TypecheckingPass, substring: &str) -> bool {
+        HirPass::diagnostics(pass)
+            .errors
+            .iter()
+            .any(|e: &String| e.contains(substring))
+    }
+
+    #[test]
+    fn for_loop_identifier_is_read_only() {
+        let pass = typecheck("fn main() { for i in 0..10 { i = 5 } }");
+        assert!(has_error_containing(&pass, "read-only"));
+    }
+
+    #[test]
+    fn for_loop_valid_usage() {
+        let pass = typecheck("fn main() -> f64 { for i in 0..10 { return i } return 0 }");
+        assert!(HirPass::diagnostics(&pass).errors.is_empty());
     }
 }

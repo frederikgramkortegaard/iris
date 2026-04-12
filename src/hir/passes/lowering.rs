@@ -218,6 +218,93 @@ impl Visitor for LoweringPass {
                 self.visit_expression(expression);
             }
 
+            Statement::For {
+                ident, range, body, ..
+            } => {
+                let Expression::Range { start, end, .. } = range.as_mut() else {
+                    unreachable!("verified to be range earlier")
+                };
+
+                let start_val = self
+                    .visit_expression(start)
+                    .expect("start must produce a value");
+                let end_val = self
+                    .visit_expression(end)
+                    .expect("end must produce a value");
+
+                let counter_reg = if let Some(id) = ident {
+                    self.alloc_variable(id.clone())
+                } else {
+                    self.get_free_register()
+                };
+
+                self.add_instruction(Instruction {
+                    dest: counter_reg,
+                    op: Opcode::Copy,
+                    typ: self.convert_type(
+                        start
+                            .typ()
+                            .as_ref()
+                            .expect("Type should be assigned to range elements here."),
+                    ),
+                    args: vec![start_val],
+                });
+
+                let cond_block = self.allocate_block();
+                let body_block = self.allocate_block();
+                let merge_block = self.allocate_block();
+
+                self.set_terminator(Terminator::Br { target: cond_block });
+                self.current_block = Some(cond_block);
+
+                // Condition: counter < end
+                let cmp_reg = self.get_free_register();
+                self.add_instruction(Instruction {
+                    dest: cmp_reg,
+                    op: Opcode::Lt,
+                    typ: mir::Type::I1,
+                    args: vec![Operand::Reg(counter_reg), end_val],
+                });
+                self.set_terminator_for_block(
+                    cond_block,
+                    Terminator::BrIf {
+                        cond: Operand::Reg(cmp_reg),
+                        then_bb: body_block,
+                        else_bb: merge_block,
+                    },
+                );
+
+                // Body
+                self.current_block = Some(body_block);
+                self.visit_block(body);
+
+                // Increment after body (unless body returned)
+                let block_id = self.current_block.expect("must have current block");
+                let block = self
+                    .current_function
+                    .as_ref()
+                    .expect("must have current function")
+                    .block(block_id);
+
+                if matches!(block.terminator, Terminator::Unreachable) {
+                    // Increment: counter = counter + 1
+                    let inc_reg = self.get_free_register();
+                    self.add_instruction(Instruction {
+                        dest: inc_reg,
+                        op: Opcode::Add,
+                        typ: mir::Type::F64,
+                        args: vec![Operand::Reg(counter_reg), Operand::ImmF64(1.0)],
+                    });
+                    self.add_instruction(Instruction {
+                        dest: counter_reg,
+                        op: Opcode::Copy,
+                        typ: mir::Type::F64,
+                        args: vec![Operand::Reg(inc_reg)],
+                    });
+                    self.set_terminator(Terminator::Br { target: cond_block });
+                }
+                self.current_block = Some(merge_block);
+            }
             Statement::While {
                 condition, body, ..
             } => {
@@ -401,6 +488,10 @@ impl Visitor for LoweringPass {
                 // Return immediate value
                 Some(Operand::ImmF64(*value))
             }
+            Expression::Range { .. } => {
+                unreachable!("Every instance of Range should be gone before we enter lowering")
+            }
+
             Expression::Boolean { value, .. } => {
                 // Return immediate boolean
                 Some(Operand::ImmBool(*value))

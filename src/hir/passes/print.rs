@@ -114,7 +114,10 @@ impl Visitor for PrintPass {
                 self.print(&format!("If statement @ {}", Self::format_span(span)))
             }
             Statement::While { span, .. } => {
-                self.print(&format!("While loop @ {}", Self::format_span(span)))
+                self.print(&format!("while loop @ {}", Self::format_span(span)))
+            }
+            Statement::For { span, .. } => {
+                self.print(&format!("for loop @ {}", Self::format_span(span)))
             }
             Statement::Block { span, .. } => {
                 self.print(&format!("Block @ {}", Self::format_span(span)))
@@ -145,6 +148,9 @@ impl Visitor for PrintPass {
             }
             Expression::UnaryOp { span, .. } => {
                 self.print(&format!("UnaryOp @ {}", Self::format_span(span)))
+            }
+            Expression::Range { span, .. } => {
+                self.print(&format!("Range {}", Self::format_span(span)))
             }
             Expression::Call {
                 identifier,

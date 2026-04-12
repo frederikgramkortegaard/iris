@@ -96,42 +96,37 @@ pub fn compute_rpo(entry: BlockId, successors: &Successors) -> Vec<BlockId> {
 ///
 /// An example would be
 ///
+/// ```text
 ///    A
 ///   / \
 ///  B   C
 ///   \ /
 ///    D
+/// ```
 ///
 /// Here, the dominator sets would be as such:
-///     A: {A}
-///     B: {A, B}
-///     C: {A, C}
-///     D: {A, D}
+/// - A: {A}
+/// - B: {A, B}
+/// - C: {A, C}
+/// - D: {A, D}
 ///
 /// Looking at node D, you see that only itself (dominator sets are self inclusive)
 /// and 'A' is in it's set. This is because you don't _need_ to go through B as you could
 /// go through C, and you don't need to go through C as you could go through B.
 ///
 /// We calculate this set by first:
-///     1. Initialize every nodes dominator set to be ALL nodes
-///     2. For every node, set dominators[node] = [Dom[p] intersect for p in
-///        predeseccors[node]]
-///     3. Once no change is observed after a calculation, we have stabilized and we are done.
+/// 1. Initialize every nodes dominator set to be ALL nodes
+/// 2. For every node, set dominators[node] = [Dom[p] intersect for p in predeseccors[node]]
+/// 3. Once no change is observed after a calculation, we have stabilized and we are done.
 ///
-/// The intuition is, simpler to explain if we consider the types of nodes in the graph:
-///     Nodes with no predecessors:
-///     Nodes with a single predecessor:
-///     Nodes with multiple predecessors:
+/// The intuition is simpler to explain if we consider the types of nodes in the graph:
 ///
-///     If nodes have no predecessors (e.g. the entry block) their dominator set will only
-///     contain themselves. {node}
-///
-///     If nodes only have a single predecessor, that nodes dominators will be the strict
-///     superset {Dom[pred]} + {node}
-///
-///     If nodes have multiple predecessors, the logic can be thought of as:
-///         The intersection of all of a nodes predecessors dominator sets, essentially maps
-///         to the common ancestors list of node's predecessors.
+/// - Nodes with no predecessors (e.g. the entry block): their dominator set will only
+///   contain themselves. {node}
+/// - Nodes with a single predecessor: their dominators will be the strict
+///   superset {Dom[pred]} + {node}
+/// - Nodes with multiple predecessors: the intersection of all of a nodes predecessors
+///   dominator sets, essentially maps to the common ancestors list of node's predecessors.
 ///
 pub fn compute_dominators(function: &Function, predecessors: &Predecessors) -> DominatorSets {
     let mut dom: DominatorSets = HashMap::new();

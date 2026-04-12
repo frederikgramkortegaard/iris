@@ -98,6 +98,7 @@ pub struct Variable {
     pub name: String,
     pub typ: Type,
     pub initializer: Option<Box<crate::ast::Expression>>,
+    pub read_only: bool,
 }
 
 #[derive(Debug)]

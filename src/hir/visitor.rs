@@ -83,6 +83,9 @@ pub trait Visitor {
     fn walk_statement(&mut self, statement: &mut Statement) -> Self::Output {
         match statement {
             Statement::Assignment { typ, right, .. } => self.visit_assignment(typ, right),
+            Statement::For {
+                ident, range, body, ..
+            } => self.visit_for(ident, range, body),
             Statement::FunctionDefinition {
                 args,
                 return_type,
@@ -152,6 +155,17 @@ pub trait Visitor {
         Self::Output::default()
     }
 
+    fn visit_for(
+        &mut self,
+        _: &mut Option<String>,
+        range: &mut Box<Expression>,
+        body: &mut Block,
+    ) -> Self::Output {
+        self.visit_expression(range);
+        self.visit_block(body);
+        Self::Output::default()
+    }
+
     fn visit_return(&mut self, expr: &mut Option<Box<Expression>>) -> Self::Output {
         if let Some(e) = expr {
             self.visit_expression(e)
@@ -177,6 +191,10 @@ pub trait Visitor {
             Expression::UnaryOp { left, .. } => self.visit_unary_op(left),
             Expression::Call { args, .. } => self.visit_call(args),
             Expression::Variable { .. } => self.visit_variable_expr(),
+            Expression::Range { start, end, .. } => {
+                self.visit_expression(start);
+                self.visit_expression(end)
+            }
         }
     }
 

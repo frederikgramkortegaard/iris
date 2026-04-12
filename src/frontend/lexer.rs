@@ -30,6 +30,7 @@ pub enum TokenType {
     Number,
 
     // Delimiters
+    DoubleDots,
     LParen,
     RParen,
     LBrace,
@@ -147,6 +148,10 @@ impl LexerContext {
         let next = self.peek(1);
 
         match (c, next) {
+            ('.', Some('.')) => {
+                self.push_token(TokenType::DoubleDots, "..".to_string());
+                true
+            }
             ('=', Some('=')) => {
                 self.push_token(TokenType::Equal, "==".to_string());
                 true
@@ -276,7 +281,8 @@ impl LexerContext {
                 while let Some(next_c) = lexer.peek(0) {
                     if next_c.is_ascii_digit() {
                         lexer.advance();
-                    } else if next_c == '.' && !has_dot {
+                    } else if next_c == '.' && !has_dot && lexer.peek(1) != Some('.') {
+                        // Only consume '.' if it's not part of '..'
                         has_dot = true;
                         lexer.advance();
                     } else {

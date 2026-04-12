@@ -23,6 +23,12 @@ impl Block {
 
 #[derive(Debug, Clone)]
 pub enum Expression {
+    Range {
+        start: Box<Expression>,
+        end: Box<Expression>,
+        span: Span,
+        typ: Option<Type>,
+    },
     Number {
         value: f64,
         span: Span,
@@ -69,6 +75,7 @@ impl Expression {
             Expression::UnaryOp { typ, .. } => typ,
             Expression::Call { typ, .. } => typ,
             Expression::Variable { typ, .. } => typ,
+            Expression::Range { typ, .. } => typ,
         }
     }
 }
@@ -99,6 +106,13 @@ pub enum Statement {
 
     While {
         condition: Box<Expression>,
+        body: Block,
+        span: Span,
+    },
+
+    For {
+        ident: Option<String>,
+        range: Box<Expression>,
         body: Block,
         span: Span,
     },
