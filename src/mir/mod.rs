@@ -1,4 +1,4 @@
-pub mod cfg;
+pub mod analysis;
 pub mod passes;
 pub mod visitor;
 use std::collections::{HashMap, HashSet};
@@ -53,6 +53,15 @@ pub enum Operand {
     Pair(BlockId, Box<Operand>), // Used for Phi nodes
 }
 
+
+impl Operand {
+    pub fn is_constant(&self) -> bool {
+        match self {
+            Operand::Reg(_) | Operand::Pair { .. } | Operand::Label(_) => false,
+            _ => true,
+        }
+    }
+}
 /// Type-safe block identifier (index into BlockArena)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BlockId(usize);
@@ -183,6 +192,7 @@ pub struct Function {
     pub virtual_entry: BlockId,
     pub definitions: HashMap<Reg, HashSet<BlockId>>,
     pub next_free_reg: Reg,
+    pub loops: Option<Vec<analysis::loops::Loop>>,
 }
 
 impl Function {
@@ -215,6 +225,7 @@ impl Function {
             virtual_entry,
             definitions: HashMap::new(),
             next_free_reg: 0,
+            loops: None,
         }
     }
 

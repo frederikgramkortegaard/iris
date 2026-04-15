@@ -1,5 +1,5 @@
 use crate::diagnostics::DiagnosticCollector;
-use crate::mir::cfg;
+use crate::mir::analysis::cfg;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::Program;

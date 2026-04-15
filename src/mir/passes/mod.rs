@@ -9,6 +9,7 @@ pub mod print;
 pub mod reg_compact;
 pub mod ssa;
 pub mod tailcall;
+pub mod scev;
 
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::Program;

@@ -1,7 +1,7 @@
 use crate::codegen::wasm::ramsey::ramsey_structuring;
 use crate::codegen::wasm::types::{WatFunction, WatInstruction, WatModule, WatType};
 use crate::codegen::wasm::StructuredNode;
-use crate::mir::cfg::{compute_cfg, compute_dominator_tree, compute_dominators};
+use crate::mir::analysis::cfg::{compute_cfg, compute_dominator_tree, compute_dominators};
 use crate::mir::{Function, Instruction, Opcode, Operand, Program, Reg, Terminator, Type};
 use std::collections::{BTreeMap, HashSet};
 

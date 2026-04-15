@@ -1,26 +1,17 @@
 use crate::diagnostics::DiagnosticCollector;
-use crate::mir::cfg;
+use crate::mir::analysis::{cfg, loops as loop_analysis};
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::Program;
 use crate::mir::{BasicBlock, BlockId, Function, Instruction, Opcode, Operand, Reg, Terminator};
 use std::collections::{HashMap, HashSet};
 
+// Re-export Loop from analysis for convenience
+pub use crate::mir::analysis::loops::Loop;
+
 pub struct MirLoopPass {
     diagnostics: DiagnosticCollector,
     defs: HashMap<Reg, BlockId>,
-}
-
-pub type Header = BlockId;
-pub type Latch = BlockId;
-
-#[derive(Debug)]
-pub struct Loop {
-    header: BlockId,
-    latches: Vec<BlockId>,
-    body: HashSet<BlockId>,
-    parent: Option<BlockId>,
-    invariants: HashSet<Reg>,
 }
 
 impl Default for MirLoopPass {
@@ -37,84 +28,6 @@ impl MirLoopPass {
         }
     }
 
-    fn find_back_edges(
-        &self,
-        function: &Function,
-        successors: &cfg::Successors,
-        dominators: &cfg::DominatorSets,
-    ) -> HashMap<Header, Vec<Latch>> {
-        let empty: HashSet<BlockId> = HashSet::new();
-
-        // Build map of back edges, grouped by header
-        let mut back_edges: HashMap<Header, Vec<Latch>> = HashMap::new();
-        for (id, _) in function.arena.iter() {
-            for succ in successors.get(&id).unwrap_or(&vec![]) {
-                if dominators.get(&id).unwrap_or(&empty).contains(succ) {
-                    back_edges.entry(*succ).or_default().push(id);
-                }
-            }
-        }
-
-        back_edges
-    }
-
-    fn find_loops(
-        &self,
-        back_edges: &HashMap<Header, Vec<Latch>>,
-        predecessors: &cfg::Predecessors,
-    ) -> Vec<Loop> {
-        // First compute all bodies
-        let mut loop_data: Vec<(BlockId, Vec<BlockId>, HashSet<BlockId>)> = vec![];
-        for (header, latches) in back_edges {
-            let body = self.compute_body(*header, latches, predecessors);
-            loop_data.push((*header, latches.clone(), body));
-        }
-
-        // Sort by body size descending (outer loops first)
-        loop_data.sort_by(|a, b| b.2.len().cmp(&a.2.len()));
-
-        let mut loops = vec![];
-        for (header, latches, body) in loop_data {
-            // Find parent: smallest existing loop that contains our header
-            let parent = loops
-                .iter()
-                .filter(|l: &&Loop| l.body.contains(&header))
-                .min_by_key(|l| l.body.len())
-                .map(|l| l.header);
-
-            loops.push(Loop {
-                header,
-                latches,
-                body,
-                parent,
-                invariants: HashSet::new(),
-            });
-        }
-
-        loops
-    }
-
-    fn compute_body(
-        &self,
-        header: BlockId,
-        latches: &[BlockId],
-        predecessors: &cfg::Predecessors,
-    ) -> HashSet<BlockId> {
-        let mut body = HashSet::new();
-        body.insert(header);
-        let mut stack: Vec<BlockId> = latches.to_vec();
-
-        while let Some(node) = stack.pop() {
-            if !body.contains(&node) {
-                body.insert(node);
-                if let Some(preds) = predecessors.get(&node) {
-                    stack.extend(preds.iter().copied());
-                }
-            }
-        }
-        body
-    }
-
     fn find_invariants(&mut self, function: &mut Function, lop: &Loop) -> HashSet<Reg> {
         let mut invariant: HashSet<Reg> = self
             .defs
@@ -123,8 +36,6 @@ impl MirLoopPass {
             .map(|(reg, _)| *reg)
             .collect::<HashSet<Reg>>();
 
-        // Admittedly a little less efficient to pre-collect the instructions, but it helps
-        // clarity
         let instructions_in_loop: Vec<&Instruction> = lop
             .body
             .iter()
@@ -150,6 +61,7 @@ impl MirLoopPass {
         }
         invariant
     }
+
     fn licm(
         &mut self,
         function: &mut Function,
@@ -227,10 +139,8 @@ impl MirLoopPass {
                 }
             }
 
-            // add instruction <i> for i in indices to remove to preheader and
-            // remove instruction <i> fro block.instructions
+            // Hoist instructions to preheader
             for (id, indices) in to_hoist {
-                // Collect in forward order
                 let hoisted: Vec<Instruction> = indices
                     .iter()
                     .map(|&i| function.block(id).instructions[i].clone())
@@ -261,6 +171,7 @@ impl MirVisitor for MirLoopPass {
     fn diagnostics_mut(&mut self) -> &mut DiagnosticCollector {
         &mut self.diagnostics
     }
+
     fn visit_function(&mut self, function: &mut Function) -> Self::Output {
         // Fill the defs map
         self.defs.clear();
@@ -272,15 +183,14 @@ impl MirVisitor for MirLoopPass {
         if crate::is_verbose() {
             println!("Function: '{}'", function.name);
         }
+
         let (predecessors, successors) = cfg::compute_cfg(function);
         let dominators = cfg::compute_dominators(function, &predecessors);
+        let back_edges = loop_analysis::find_back_edges(function, &successors, &dominators);
 
-        let back_edges = self.find_back_edges(function, &successors, &dominators);
-        let loops = self
-            .find_loops(&back_edges, &predecessors)
+        let loops = loop_analysis::find_loops(&back_edges, &predecessors)
             .into_iter()
             .map(|l| {
-                // Find Invariants in each loop
                 let invariants = self.find_invariants(function, &l);
                 Loop {
                     header: l.header,
@@ -290,9 +200,10 @@ impl MirVisitor for MirLoopPass {
                     invariants,
                 }
             })
-            .collect();
+            .collect::<Vec<_>>();
 
         self.licm(function, &loops, &predecessors, &dominators);
+        function.loops = Some(loops);
     }
 
     fn visit_basicblock(&mut self, block_id: BlockId, block: &mut BasicBlock) -> Self::Output {
@@ -305,6 +216,7 @@ impl MirVisitor for MirLoopPass {
         }
     }
 }
+
 impl MirPass for MirLoopPass {
     fn run(&mut self, program: &mut Program) {
         self.visit_program(program);

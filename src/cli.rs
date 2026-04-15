@@ -17,6 +17,7 @@ use crate::mir::passes::print::MirPrintingPass;
 use crate::mir::passes::reg_compact::RegCompactPass;
 use crate::mir::passes::ssa::MirSSAPass;
 use crate::mir::passes::tailcall::MirTailCallPass;
+use crate::mir::passes::scev::MirSCEVPass;
 
 use crate::pass::RunPass;
 
@@ -108,6 +109,12 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if verbose {
+        mir.run_pass(&mut MirPrintingPass::with_message("post optim"))?;
+    }
+    mir.run_pass(&mut MirSCEVPass::new())?;
+    return Ok(());
+
+    if verbose {
         mir.run_pass(&mut MirPrintingPass::with_message("Optimized SSA"))?;
     }
 
@@ -115,9 +122,6 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         .run_pass(&mut RegCompactPass::new())?
         .run_pass(&mut MirDeadBlockEliminationPass::new())?;
 
-    if verbose {
-        mir.run_pass(&mut MirPrintingPass::with_message("Out of SSA"))?;
-    }
 
     let output = match target.as_str() {
         "wasm" => {

@@ -1,5 +1,5 @@
 use crate::codegen::wasm::StructuredNode;
-use crate::mir::cfg::{DominatorTree, Successors};
+use crate::mir::analysis::cfg::{DominatorTree, Successors};
 use crate::mir::BlockId;
 use std::collections::HashSet;
 
@@ -25,7 +25,7 @@ pub fn ramsey_structuring(
     succs: &Successors,
 ) -> StructuredNode {
     // Region dominated by this block (subtree)
-    let region: HashSet<BlockId> = crate::mir::cfg::dominated_subtree(dom_tree, block_id);
+    let region: HashSet<BlockId> = crate::mir::analysis::cfg::dominated_subtree(dom_tree, block_id);
 
     // Successors of this block that are inside the region
     let outs: Vec<_> = succs[&block_id]
