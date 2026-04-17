@@ -182,6 +182,10 @@ All passes operate on the MIR in SSA form and run to a fixed point in an iterati
 
 **Dead Block Elimination** - removes basic blocks that become unreachable once the CFG is finalized.
 
+**Induction Variable Analysis** - identifies basic induction variables (BIVs) from phi nodes in loop headers by pattern matching `i = phi(init, i + step)` recurrences.
+
+**SCEV** (Scalar Evolution) - analyzes how scalar values evolve across loop iterations. Combined with exit condition analysis, computes trip counts as constant values or symbolic expressions.
+
 SSA is deconstructed back to conventional form using parallel copies to correctly handle lost-copy and swap cases at phi node boundaries.
 
 ## Building
