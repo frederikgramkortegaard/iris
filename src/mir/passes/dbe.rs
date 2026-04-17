@@ -1,7 +1,7 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{BlockId, Function, Program, Terminator};
+use crate::mir::{BlockId, Function, Operand, Program, Terminator};
 use std::collections::HashSet;
 
 pub struct MirDeadBlockEliminationPass {
@@ -37,11 +37,17 @@ fn reachable_blocks(function: &Function) -> HashSet<BlockId> {
                 worklist.push(*target);
             }
             Terminator::BrIf {
-                then_bb, else_bb, ..
-            } => {
-                worklist.push(*then_bb);
-                worklist.push(*else_bb);
-            }
+                cond,
+                then_bb,
+                else_bb,
+            } => match cond {
+                Operand::ImmBool(true) => worklist.push(*then_bb),
+                Operand::ImmBool(false) => worklist.push(*else_bb),
+                _ => {
+                    worklist.push(*then_bb);
+                    worklist.push(*else_bb);
+                }
+            },
             Terminator::Ret { .. } | Terminator::Unreachable => {}
         }
     }
@@ -61,6 +67,26 @@ impl MirVisitor for MirDeadBlockEliminationPass {
     }
 
     fn visit_function(&mut self, function: &mut Function) {
+        // First, simplify constant BrIf -> Br
+        for (_, block) in function.arena.iter_mut() {
+            if let Terminator::BrIf {
+                cond,
+                then_bb,
+                else_bb,
+            } = &block.terminator
+            {
+                let new_term = match cond {
+                    Operand::ImmBool(true) => Some(Terminator::Br { target: *then_bb }),
+                    Operand::ImmBool(false) => Some(Terminator::Br { target: *else_bb }),
+                    _ => None,
+                };
+                if let Some(t) = new_term {
+                    block.terminator = t;
+                }
+            }
+        }
+
+        // Then eliminate unreachable blocks
         let reachable = reachable_blocks(function);
 
         let dead: Vec<BlockId> = function

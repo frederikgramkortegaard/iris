@@ -102,15 +102,13 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Optimize in SSA form
     for _ in 0..3 {
         mir.run_pass(&mut MirConstPropPass::new())?
+            .run_pass(&mut MirDeadBlockEliminationPass::new())?
             .run_pass(&mut MirLoopPass::new())?
             .run_pass(&mut MirGVNPass::new())?
             .run_pass(&mut MirCopyPropPass::new())?
             .run_pass(&mut MirDCEPass::new())?;
     }
 
-    if verbose {
-        mir.run_pass(&mut MirPrintingPass::with_message("post optim"))?;
-    }
     mir.run_pass(&mut MirSCEVPass::new())?;
 
     if verbose {
@@ -118,8 +116,10 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     mir.run_pass(&mut MirSSADeconstructionPass::new())?
-        .run_pass(&mut RegCompactPass::new())?
-        .run_pass(&mut MirDeadBlockEliminationPass::new())?;
+        .run_pass(&mut RegCompactPass::new())?;
+    if verbose {
+        mir.run_pass(&mut MirPrintingPass::with_message("MIR after SSA Deconstruction"))?;
+    }
 
     let output = match target.as_str() {
         "wasm" => {

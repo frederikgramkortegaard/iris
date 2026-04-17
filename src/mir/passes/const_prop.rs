@@ -26,6 +26,47 @@ impl MirConstPropPass {
     fn is_rhs_constant(&self, op: &Operand) -> bool {
         !matches!(op, Operand::Reg(_) | Operand::Pair(..) | Operand::Label(_))
     }
+
+    fn get_numeric(&self, o: &Operand) -> Option<f64> {
+        match o {
+            Operand::ImmI64(v) => Some(*v as f64),
+            Operand::ImmF64(v) => Some(*v),
+            Operand::ImmBool(v) => Some(*v as i64 as f64),
+            _ => None,
+        }
+    }
+    fn fold(&self, op: &Opcode, args: &[Operand]) -> Option<Operand> {
+        if args.len() != 2 {
+            return None;
+        }
+
+        let use_f64 =
+            matches!(args[0], Operand::ImmF64(_)) || matches!(args[1], Operand::ImmF64(_));
+
+        let wrap = |v: f64| {
+            if use_f64 {
+                Operand::ImmF64(v)
+            } else {
+                Operand::ImmI64(v as i64)
+            }
+        };
+
+        let lhs = self.get_numeric(&args[0])?;
+        let rhs = self.get_numeric(&args[1])?;
+
+        match op {
+            Opcode::Eq => Some(Operand::ImmBool(lhs == rhs)),
+            Opcode::Ne => Some(Operand::ImmBool(lhs != rhs)),
+            Opcode::Le => Some(Operand::ImmBool(lhs <= rhs)),
+            Opcode::Lt => Some(Operand::ImmBool(lhs < rhs)),
+
+            Opcode::Add => Some(wrap(lhs + rhs)),
+            Opcode::Sub => Some(wrap(lhs - rhs)),
+            Opcode::Div => Some(wrap(lhs / rhs)),
+            Opcode::Mul => Some(wrap(lhs * rhs)),
+            _ => None,
+        }
+    }
 }
 
 impl MirVisitor for MirConstPropPass {
@@ -61,31 +102,38 @@ impl MirVisitor for MirConstPropPass {
     //      replace the entire operand list in the instruction
     // }
     fn visit_instruction(&mut self, instruction: &mut Instruction) -> Self::Output {
-        for arg in &mut instruction.args {
-            match arg {
-                Operand::Reg(r) => {
-                    if let Some(constant) = self.constant_map.get(r) {
-                        if crate::is_verbose() {
-                            println!("Replacing register r{} with constant {:?}", r, constant);
-                        }
-                        *arg = constant.clone();
-                    }
-                }
-                // Phi args are Pair(block, value) -- propagate into the inner value
-                Operand::Pair(_, op) => {
-                    if let Operand::Reg(r) = op.as_ref() {
+        if instruction.args.iter().all(|a| a.is_constant()) {
+            if let Some(result) = self.fold(&instruction.op, &instruction.args) {
+                instruction.op = Opcode::Copy;
+                instruction.args = vec![result];
+            }
+        } else {
+            for arg in &mut instruction.args {
+                match arg {
+                    Operand::Reg(r) => {
                         if let Some(constant) = self.constant_map.get(r) {
                             if crate::is_verbose() {
-                                println!(
-                                    "Replacing (phi) register r{} with constant {:?}",
-                                    r, constant
-                                );
+                                println!("Replacing register r{} with constant {:?}", r, constant);
                             }
-                            **op = constant.clone();
+                            *arg = constant.clone();
                         }
                     }
+                    // Phi args are Pair(block, value) -- propagate into the inner value
+                    Operand::Pair(_, op) => {
+                        if let Operand::Reg(r) = op.as_ref() {
+                            if let Some(constant) = self.constant_map.get(r) {
+                                if crate::is_verbose() {
+                                    println!(
+                                        "Replacing (phi) register r{} with constant {:?}",
+                                        r, constant
+                                    );
+                                }
+                                **op = constant.clone();
+                            }
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
         }
 
@@ -103,6 +151,26 @@ impl MirVisitor for MirConstPropPass {
                     &instruction.args[0]
                 );
             }
+        }
+    }
+
+    fn visit_terminator(&mut self, terminator: &mut crate::mir::Terminator) -> Self::Output {
+        match terminator {
+            crate::mir::Terminator::BrIf { cond, .. } => {
+                if let Operand::Reg(r) = cond {
+                    if let Some(constant) = self.constant_map.get(r) {
+                        *cond = constant.clone();
+                    }
+                }
+            }
+            crate::mir::Terminator::Ret { value: Some(op) } => {
+                if let Operand::Reg(r) = op {
+                    if let Some(constant) = self.constant_map.get(r) {
+                        *op = constant.clone();
+                    }
+                }
+            }
+            _ => {}
         }
     }
 }
