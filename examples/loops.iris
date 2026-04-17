@@ -1,16 +1,16 @@
 
 fn licm_nested(n: f64, a: f64, b: f64) -> f64 {
   var sum = 0
-  var i = 0
+  var i = 20
   while (i < 100) {
     var x = a * b
-    var j = 0
+    var j = 40
     while (j < n) {
       var y = x + 1
       sum = sum + y
       j = j + 1
     }
-    i = i + 1
+    i = i + 3
   }
   return sum
 }

@@ -4,6 +4,7 @@ A compiler for a custom language targeting WebAssembly, built from scratch in Ru
 
 - SSA construction via iterated dominance frontiers and dominator tree renaming, with correct SSA deconstruction via parallel copies
 - Optimization passes: constant propagation, GVN, LICM, copy propagation, DCE, tail call optimization, dead block elimination, register compaction, peephole optimization
+- SCEV (Scalar Evolution) / Induction Variable Analysis, Trip Count Computation
 - [Ramsey (2022)](https://dl.acm.org/doi/10.1145/3547621) structure recovery for CFG -> structured WebAssembly
 - Visitor pattern for traversal and transformation of both HIR and MIR
 
@@ -226,8 +227,12 @@ src/
 |       +-- lowering.rs              # HIR -> MIR
 |
 |-- mir/
-|   |-- cfg.rs                       # CFG, dominators, dominance frontiers
 |   |-- visitor.rs
+|   |-- analysis/
+|   |   |-- cfg.rs                   # CFG, dominators, dominance frontiers
+|   |   |-- dfg.rs                   # Data flow graph, def-use chains
+|   |   |-- loops.rs                 # Loop detection, natural loops
+|   |   +-- iv.rs                    # Induction variable detection
 |   +-- passes/
 |       |-- ssa.rs                   # Phi insertion, variable renaming
 |       |-- deconstruct.rs           # SSA deconstruction
@@ -236,7 +241,8 @@ src/
 |       |-- copy_prop.rs             # Copy propagation
 |       |-- dce.rs                   # Dead code elimination
 |       |-- dbe.rs                   # Dead block elimination
-|       |-- loops.rs                 # Loop analysis & LICM
+|       |-- loops.rs                 # LICM (loop invariant code motion)
+|       |-- scev.rs                  # SCEV, trip count computation
 |       |-- tailcall.rs              # Tail call optimization
 |       +-- reg_compact.rs           # Register compaction
 |
