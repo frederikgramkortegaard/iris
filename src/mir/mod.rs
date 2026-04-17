@@ -55,7 +55,10 @@ pub enum Operand {
 
 impl Operand {
     pub fn is_constant(&self) -> bool {
-        !matches!(self, Operand::Reg(_) | Operand::Pair { .. } | Operand::Label(_))
+        !matches!(
+            self,
+            Operand::Reg(_) | Operand::Pair { .. } | Operand::Label(_)
+        )
     }
 }
 /// Type-safe block identifier (index into BlockArena)

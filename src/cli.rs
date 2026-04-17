@@ -118,7 +118,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     mir.run_pass(&mut MirSSADeconstructionPass::new())?
         .run_pass(&mut RegCompactPass::new())?;
     if verbose {
-        mir.run_pass(&mut MirPrintingPass::with_message("MIR after SSA Deconstruction"))?;
+        mir.run_pass(&mut MirPrintingPass::with_message(
+            "MIR after SSA Deconstruction",
+        ))?;
     }
 
     let output = match target.as_str() {
