@@ -16,12 +16,7 @@ enum SCEVExpr<'a> {
     PhiSelf,
 }
 
-fn build<'a>(
-    f: &'a Function,
-    o: &'a Operand,
-    dfg: &DFGAnalysis,
-    phireg: Reg,
-) -> SCEVExpr<'a> {
+fn build<'a>(f: &'a Function, o: &'a Operand, dfg: &DFGAnalysis, phireg: Reg) -> SCEVExpr<'a> {
     match o {
         Operand::ImmI64(_) | Operand::ImmF64(_) | Operand::ImmBool(_) => SCEVExpr::Constant(o),
         Operand::Pair(_, arg) => build(f, arg, dfg, phireg),
@@ -112,11 +107,7 @@ fn try_build_iv(
 }
 
 /// Compute induction variables for a loop
-pub fn compute(
-    function: &Function,
-    lop: &Loop,
-    dfg: &DFGAnalysis,
-) -> HashMap<Reg, InductionVar> {
+pub fn compute(function: &Function, lop: &Loop, dfg: &DFGAnalysis) -> HashMap<Reg, InductionVar> {
     let mut ivs = HashMap::new();
 
     let block = function.block(lop.header);

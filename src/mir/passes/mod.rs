@@ -7,9 +7,9 @@ pub mod gvn;
 pub mod loops;
 pub mod print;
 pub mod reg_compact;
+pub mod scev;
 pub mod ssa;
 pub mod tailcall;
-pub mod scev;
 
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::Program;

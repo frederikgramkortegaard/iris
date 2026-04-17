@@ -8,8 +8,6 @@ A compiler for a custom language targeting WebAssembly, built from scratch in Ru
 - [Ramsey (2022)](https://dl.acm.org/doi/10.1145/3547621) structure recovery for CFG -> structured WebAssembly
 - Visitor pattern for traversal and transformation of both HIR and MIR
 
-I'm writing up the internals in more depth at [frederikgramkortegaard.github.io/articles](https://frederikgramkortegaard.github.io/articles/).
-
 ## Example
 
 ```
@@ -137,6 +135,10 @@ Source (.iris)
   |-- Analysis:
   |     CFG Construction
   |     Dominator Trees & Frontiers
+  |     DFG (Data Flow Graph)
+  |     Loop Detection
+  |     Induction Variable Detection
+  |     SCEV / Trip Count Computation
   |-- SSA:
   |     Phi Insertion (iterated dominance frontiers)
   |     Variable Renaming (dominator tree walk)

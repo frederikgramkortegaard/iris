@@ -1021,8 +1021,12 @@ mod tests {
         let func = &prog.functions[0];
         if let Statement::For { range, .. } = &func.body.statements[0] {
             if let Expression::Range { start, end, .. } = range.as_ref() {
-                assert!(matches!(start.as_ref(), Expression::Number { value, .. } if *value == 1.0));
-                assert!(matches!(end.as_ref(), Expression::Number { value, .. } if *value == 100.0));
+                assert!(
+                    matches!(start.as_ref(), Expression::Number { value, .. } if *value == 1.0)
+                );
+                assert!(
+                    matches!(end.as_ref(), Expression::Number { value, .. } if *value == 100.0)
+                );
             } else {
                 panic!("expected range expression");
             }

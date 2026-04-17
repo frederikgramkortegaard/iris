@@ -53,7 +53,6 @@ pub enum Operand {
     Pair(BlockId, Box<Operand>), // Used for Phi nodes
 }
 
-
 impl Operand {
     pub fn is_constant(&self) -> bool {
         match self {

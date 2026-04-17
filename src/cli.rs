@@ -15,9 +15,9 @@ use crate::mir::passes::gvn::MirGVNPass;
 use crate::mir::passes::loops::MirLoopPass;
 use crate::mir::passes::print::MirPrintingPass;
 use crate::mir::passes::reg_compact::RegCompactPass;
+use crate::mir::passes::scev::MirSCEVPass;
 use crate::mir::passes::ssa::MirSSAPass;
 use crate::mir::passes::tailcall::MirTailCallPass;
-use crate::mir::passes::scev::MirSCEVPass;
 
 use crate::pass::RunPass;
 
@@ -121,7 +121,6 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     mir.run_pass(&mut MirSSADeconstructionPass::new())?
         .run_pass(&mut RegCompactPass::new())?
         .run_pass(&mut MirDeadBlockEliminationPass::new())?;
-
 
     let output = match target.as_str() {
         "wasm" => {
