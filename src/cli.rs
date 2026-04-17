@@ -112,7 +112,6 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         mir.run_pass(&mut MirPrintingPass::with_message("post optim"))?;
     }
     mir.run_pass(&mut MirSCEVPass::new())?;
-    return Ok(());
 
     if verbose {
         mir.run_pass(&mut MirPrintingPass::with_message("Optimized SSA"))?;
