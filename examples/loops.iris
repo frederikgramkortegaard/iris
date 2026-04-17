@@ -1,31 +1,8 @@
 
-fn licm_simple(n: f64, a: f64, b: f64) -> f64 {
-  var sum = 0
-  var i = 0
-  while (i < n) {
-    var x = a + b
-    sum = sum + x
-    i = i + 1
-  }
-  return sum
-}
-
-fn licm_chain(n: f64, a: f64, b: f64) -> f64 {
-  var sum = 0
-  var i = 0
-  while (i < n) {
-    var x = a + b
-    var y = x * 2
-    sum = sum + y
-    i = i + 1
-  }
-  return sum
-}
-
 fn licm_nested(n: f64, a: f64, b: f64) -> f64 {
   var sum = 0
   var i = 0
-  while (i < n) {
+  while (i < 100) {
     var x = a * b
     var j = 0
     while (j < n) {

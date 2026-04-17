@@ -190,15 +190,9 @@ impl MirVisitor for MirLoopPass {
 
         let loops = loop_analysis::find_loops(&back_edges, &predecessors)
             .into_iter()
-            .map(|l| {
-                let invariants = self.find_invariants(function, &l);
-                Loop {
-                    header: l.header,
-                    latches: l.latches,
-                    body: l.body,
-                    parent: l.parent,
-                    invariants,
-                }
+            .map(|mut l| {
+                l.invariants = self.find_invariants(function, &l);
+                l
             })
             .collect::<Vec<_>>();
 

@@ -1,17 +1,63 @@
 use crate::mir::analysis::cfg;
-use crate::mir::{BlockId, Function, Reg};
+use crate::mir::{BlockId, Function, Operand, Reg};
 use std::collections::{HashMap, HashSet};
 
 pub type Header = BlockId;
 pub type Latch = BlockId;
 
+/// An induction variable: starts at start, increments by step each iteration
+#[derive(Debug, Clone)]
+pub struct InductionVar {
+    pub start: Operand,
+    pub step: Operand,
+}
+
+/// Trip count of a loop
+#[derive(Debug, Clone, Default)]
+pub enum TripCount {
+    Constant(i64),
+    Symbolic(Operand),
+    #[default]
+    Unknown,
+}
+
 #[derive(Debug)]
 pub struct Loop {
+    // Core structure (required)
     pub header: BlockId,
     pub latches: Vec<BlockId>,
     pub body: HashSet<BlockId>,
     pub parent: Option<BlockId>,
+
+    // Analysis results (populated later)
     pub invariants: HashSet<Reg>,
+    pub ivs: HashMap<Reg, InductionVar>,
+    pub trip_count: TripCount,
+    pub exits: Vec<BlockId>,
+    pub preheader: Option<BlockId>,
+    pub depth: usize,
+}
+
+impl Loop {
+    pub fn new(
+        header: BlockId,
+        latches: Vec<BlockId>,
+        body: HashSet<BlockId>,
+        parent: Option<BlockId>,
+    ) -> Self {
+        Loop {
+            header,
+            latches,
+            body,
+            parent,
+            invariants: HashSet::new(),
+            ivs: HashMap::new(),
+            trip_count: TripCount::default(),
+            exits: Vec::new(),
+            preheader: None,
+            depth: 0,
+        }
+    }
 }
 
 /// Find all back edges in the CFG
@@ -80,13 +126,7 @@ pub fn find_loops(
             .min_by_key(|l| l.body.len())
             .map(|l| l.header);
 
-        loops.push(Loop {
-            header,
-            latches,
-            body,
-            parent,
-            invariants: HashSet::new(),
-        });
+        loops.push(Loop::new(header, latches, body, parent));
     }
 
     loops

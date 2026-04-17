@@ -1,22 +1,19 @@
 use crate::mir::analysis::dfg::DFGAnalysis;
-use crate::mir::analysis::loops::Loop;
+use crate::mir::analysis::loops::{InductionVar, Loop};
 use crate::mir::{Function, Instruction, Opcode, Operand, Reg};
 use std::collections::HashMap;
 
+/// Internal SCEV expression used during analysis
 #[derive(Debug, Clone)]
-pub enum SCEVExpr<'a> {
-    AddRec {
-        start: Box<SCEVExpr<'a>>,
-        step: Box<SCEVExpr<'a>>,
-    },
+enum SCEVExpr<'a> {
     BinOp {
         kind: Opcode,
         left: Box<SCEVExpr<'a>>,
         right: Box<SCEVExpr<'a>>,
     },
-    Unknown(&'a Operand),
+    Unknown,
     Constant(&'a Operand),
-    PhiSelf(&'a Operand),
+    PhiSelf,
 }
 
 fn build<'a>(
@@ -30,11 +27,11 @@ fn build<'a>(
         Operand::Pair(_, arg) => build(f, arg, dfg, phireg),
         Operand::Reg(r) => {
             if *r == phireg {
-                return SCEVExpr::PhiSelf(o);
+                return SCEVExpr::PhiSelf;
             }
 
             let Some(inst) = dfg.get_instruction(f, *r) else {
-                return SCEVExpr::Unknown(o);
+                return SCEVExpr::Unknown;
             };
 
             match inst.op {
@@ -48,41 +45,41 @@ fn build<'a>(
                     }
                 }
                 Opcode::Copy => build(f, &inst.args[0], dfg, phireg),
-                _ => SCEVExpr::Unknown(o),
+                _ => SCEVExpr::Unknown,
             }
         }
-        _ => SCEVExpr::Unknown(o),
+        _ => SCEVExpr::Unknown,
     }
 }
 
-fn try_build_addrec<'a>(
-    f: &'a Function,
+fn try_build_iv(
+    f: &Function,
     dfg: &DFGAnalysis,
-    phi: &'a Instruction,
+    phi: &Instruction,
     lop: &Loop,
-) -> Option<SCEVExpr<'a>> {
-
-    // Only Three-Address Phi Nodes
+) -> Option<InductionVar> {
+    // Only two-arg phi nodes (simple case)
     if phi.args.len() != 2 {
         return None;
     }
 
-    let (mut start, mut back) = (None, None);
+    let (mut start_op, mut back_op) = (None, None);
     for arg in &phi.args {
         let Operand::Pair(blockid, op) = arg else {
             continue;
         };
         if lop.body.contains(blockid) {
-            back = Some(op);
+            back_op = Some(op.as_ref());
         } else {
-            start = Some(op);
+            start_op = Some(op.as_ref());
         }
     }
 
-    let start = start?;
-    let back = back?;
+    let start_op = start_op?;
+    let back_op = back_op?;
 
-    let back_scev = build(f, back, dfg, phi.dest);
+    // Analyze back edge expression
+    let back_scev = build(f, back_op, dfg, phi.dest);
 
     let SCEVExpr::BinOp { kind, left, right } = &back_scev else {
         return None;
@@ -92,39 +89,42 @@ fn try_build_addrec<'a>(
         return None;
     }
 
-    let SCEVExpr::PhiSelf(_) = left.as_ref() else {
+    // Left must be self-reference
+    let SCEVExpr::PhiSelf = left.as_ref() else {
         return None;
     };
 
-    let SCEVExpr::Constant(_) = right.as_ref() else {
+    // Right (step) must be constant
+    let SCEVExpr::Constant(step) = right.as_ref() else {
         return None;
     };
 
-    let start_scev = build(f, start, dfg, phi.dest);
-    let SCEVExpr::Constant(_) = &start_scev else {
+    // Start must be constant
+    let start_scev = build(f, start_op, dfg, phi.dest);
+    let SCEVExpr::Constant(start) = &start_scev else {
         return None;
     };
 
-    Some(SCEVExpr::AddRec {
-        start: Box::new(start_scev),
-        step: right.clone(),
+    Some(InductionVar {
+        start: (*start).clone(),
+        step: (*step).clone(),
     })
 }
 
-/// Compute SCEVs for all induction variables in a loop
-pub fn compute<'a>(
-    function: &'a Function,
+/// Compute induction variables for a loop
+pub fn compute(
+    function: &Function,
     lop: &Loop,
     dfg: &DFGAnalysis,
-) -> HashMap<Reg, SCEVExpr<'a>> {
-    let mut scevs = HashMap::new();
+) -> HashMap<Reg, InductionVar> {
+    let mut ivs = HashMap::new();
 
     let block = function.block(lop.header);
     for phi in &block.phi_nodes {
-        if let Some(addrec) = try_build_addrec(function, dfg, phi, lop) {
-            scevs.insert(phi.dest, addrec);
+        if let Some(iv) = try_build_iv(function, dfg, phi, lop) {
+            ivs.insert(phi.dest, iv);
         }
     }
 
-    scevs
+    ivs
 }
