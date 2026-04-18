@@ -120,10 +120,8 @@ impl MirLoopPass {
             for outside in outside_preds {
                 let block = function.block_mut(outside);
                 match &mut block.terminator {
-                    Terminator::Br { target } => {
-                        if *target == lop.header {
-                            *target = preheader;
-                        }
+                    Terminator::Br { target } if *target == lop.header => {
+                        *target = preheader;
                     }
                     Terminator::BrIf {
                         then_bb, else_bb, ..

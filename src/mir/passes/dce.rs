@@ -159,18 +159,14 @@ impl MirVisitor for MirDCEPass {
         match &term {
             Terminator::Ret {
                 value: Some(Operand::Reg(r)),
-            } => {
-                if self.live.insert(*r) {
-                    self.worklist.push(*r);
-                }
+            } if self.live.insert(*r) => {
+                self.worklist.push(*r);
             }
             Terminator::BrIf {
                 cond: Operand::Reg(r),
                 ..
-            } => {
-                if self.live.insert(*r) {
-                    self.worklist.push(*r);
-                }
+            } if self.live.insert(*r) => {
+                self.worklist.push(*r);
             }
             _ => {}
         }

@@ -115,7 +115,7 @@ pub fn find_loops(
     }
 
     // Sort by body size descending (outer loops first)
-    loop_data.sort_by(|a, b| b.2.len().cmp(&a.2.len()));
+    loop_data.sort_by_key(|x| std::cmp::Reverse(x.2.len()));
 
     let mut loops = vec![];
     for (header, latches, body) in loop_data {
