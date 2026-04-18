@@ -4,6 +4,7 @@ use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::Program;
 use crate::mir::{BasicBlock, BlockId, Function, Instruction, Opcode, Operand, Reg, Terminator};
+use log::debug;
 use std::collections::{HashMap, HashSet};
 
 // Re-export Loop from analysis for convenience
@@ -56,9 +57,7 @@ impl MirLoopPass {
             }
         }
 
-        if crate::is_verbose() {
-            println!("Found following invariants in {:?}: {:?}", lop, invariant);
-        }
+        debug!("Found following invariants in {:?}: {:?}", lop, invariant);
         invariant
     }
 
@@ -149,9 +148,7 @@ impl MirLoopPass {
                 }
                 // Append in forward order
                 for inst in hoisted {
-                    if crate::is_verbose() {
-                        println!("Moving Instruction {:?} from {:?} to Preheader", inst, id);
-                    }
+                    debug!("Moving Instruction {:?} from {:?} to Preheader", inst, id);
                     function.block_mut(preheader).instructions.push(inst);
                 }
             }
@@ -178,9 +175,7 @@ impl MirVisitor for MirLoopPass {
             self.defs.insert(*reg, function.virtual_entry);
         }
 
-        if crate::is_verbose() {
-            println!("Function: '{}'", function.name);
-        }
+        debug!("Function: '{}'", function.name);
 
         let (predecessors, successors) = cfg::compute_cfg(function);
         let dominators = cfg::compute_dominators(function, &predecessors);

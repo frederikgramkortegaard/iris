@@ -5,6 +5,7 @@ use crate::mir::analysis::loops::{InductionVar, Loop, TripCount};
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::{Function, Instruction, Opcode, Operand, Program, Terminator};
+use log::debug;
 
 pub struct MirSCEVPass {
     diagnostics: DiagnosticCollector,
@@ -153,13 +154,11 @@ impl MirVisitor for MirSCEVPass {
             lop.ivs = iv::compute(function, lop, &dfg);
             lop.trip_count = self.get_trip_count(function, lop, &dfg);
 
-            if crate::is_verbose() {
-                println!("Loop {:?}:", lop.header);
-                for (reg, iv) in &lop.ivs {
-                    println!("  IV r{}: {:?}", reg, iv);
-                }
-                println!("  Trip count: {:?}", lop.trip_count);
+            debug!("Loop {:?}:", lop.header);
+            for (reg, iv) in &lop.ivs {
+                debug!("  IV r{}: {:?}", reg, iv);
             }
+            debug!("  Trip count: {:?}", lop.trip_count);
         }
 
         function.loops = Some(loops);

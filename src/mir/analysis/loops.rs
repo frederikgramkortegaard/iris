@@ -1,6 +1,7 @@
 use crate::mir::analysis::cfg;
 use crate::mir::{BlockId, Function, Operand, Reg};
 use std::collections::{HashMap, HashSet};
+use crate::ast::Statement;
 
 pub type Header = BlockId;
 pub type Latch = BlockId;
@@ -29,6 +30,10 @@ pub struct Loop {
     pub body: HashSet<BlockId>,
     pub parent: Option<BlockId>,
 
+
+    // 
+    pub ast: Option<Statement>,
+
     // Analysis results (populated later)
     pub invariants: HashSet<Reg>,
     pub ivs: HashMap<Reg, InductionVar>,
@@ -50,6 +55,7 @@ impl Loop {
             latches,
             body,
             parent,
+            ast: None,
             invariants: HashSet::new(),
             ivs: HashMap::new(),
             trip_count: TripCount::default(),

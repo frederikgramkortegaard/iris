@@ -3,6 +3,7 @@ use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::Program;
 use crate::mir::{BasicBlock, BlockId, Function, Opcode, Operand, Reg, Terminator, Type};
+use log::debug;
 use std::collections::{HashMap, HashSet};
 
 type InstructionIndex = usize;
@@ -71,15 +72,15 @@ impl MirDCEPass {
         for (_, block) in function.arena.iter_mut() {
             block.instructions.retain(|inst| {
                 let keep = self.live.contains(&inst.dest);
-                if !keep && crate::is_verbose() {
-                    println!("Removing Instruction {:?} from block", inst);
+                if !keep {
+                    debug!("Removing Instruction {:?} from block", inst);
                 }
                 keep
             });
             block.phi_nodes.retain(|phi| {
                 let keep = self.live.contains(&phi.dest);
-                if !keep && crate::is_verbose() {
-                    println!("Removing dead Phi {:?} from block", phi);
+                if !keep {
+                    debug!("Removing dead Phi {:?} from block", phi);
                 }
                 keep
             });
@@ -106,22 +107,18 @@ impl MirVisitor for MirDCEPass {
         self.worklist.clear();
 
         self.walk_function(function);
-        if crate::is_verbose() {
-            println!(
-                "Function: {}:\ndefmap: {:?}\nlive: {:?}\nworklist: {:?}\n\n",
-                function.name, self.defmap, self.live, self.worklist
-            );
-        }
+        debug!(
+            "Function: {}:\ndefmap: {:?}\nlive: {:?}\nworklist: {:?}\n\n",
+            function.name, self.defmap, self.live, self.worklist
+        );
 
         self.propagate_worklist(function);
 
         self.sweep(function);
-        if crate::is_verbose() {
-            println!(
-                "Function: {}:\ndefmap: {:?}\nlive: {:?}\nworklist: {:?}\n\n",
-                function.name, self.defmap, self.live, self.worklist
-            );
-        }
+        debug!(
+            "Function: {}:\ndefmap: {:?}\nlive: {:?}\nworklist: {:?}\n\n",
+            function.name, self.defmap, self.live, self.worklist
+        );
     }
 
     fn visit_basicblock(&mut self, block_id: BlockId, block: &mut BasicBlock) -> Self::Output {

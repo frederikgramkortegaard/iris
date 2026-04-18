@@ -3,6 +3,7 @@ use crate::hir::passes::HirPass;
 use crate::hir::visitor::{DiagnosticCollector, Visitor};
 use crate::span::Span;
 use crate::types::{Function, Variable};
+use log::debug;
 
 /// Visitor that prints the AST structure with indentation
 pub struct PrintPass {
@@ -25,16 +26,12 @@ impl PrintPass {
     }
 
     pub fn with_message(message: impl Into<String>) -> Self {
-        if crate::is_verbose() {
-            println!("{}", message.into());
-        }
+        debug!("{}", message.into());
         Self::new()
     }
 
     fn print(&self, msg: &str) {
-        if crate::is_verbose() {
-            println!("{}{}", "  ".repeat(self.indent), msg);
-        }
+        debug!("{}{}", "  ".repeat(self.indent), msg);
     }
 
     fn format_span(span: &Span) -> String {

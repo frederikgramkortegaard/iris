@@ -20,12 +20,25 @@ use crate::mir::passes::ssa::MirSSAPass;
 use crate::mir::passes::tailcall::MirTailCallPass;
 
 use crate::pass::RunPass;
+use log::{debug, error};
 
 use std::fs;
 
 /// Runs the compiler CLI with the given command-line arguments.
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
+
+    // Parse --verbose early to configure logger
+    let verbose = args.iter().any(|a| a == "--verbose");
+    env_logger::Builder::new()
+        .filter_level(if verbose {
+            log::LevelFilter::Debug
+        } else {
+            log::LevelFilter::Warn
+        })
+        .format_timestamp(None)
+        .format_target(false)
+        .init();
 
     if args.len() < 2 {
         eprintln!(
@@ -36,15 +49,12 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let filename = &args[1];
-
-    // Parse flags
-    let verbose = args.iter().any(|a| a == "--verbose");
-    crate::set_verbose(verbose);
+    debug!("Compiling: {}", filename);
 
     let output_path = args.iter().position(|a| a == "-o").map(|i| {
         args.get(i + 1)
             .unwrap_or_else(|| {
-                eprintln!("Error: -o requires an output file path");
+                error!("Error: -o requires an output file path");
                 std::process::exit(1);
             })
             .clone()
@@ -56,7 +66,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map(|i| {
             args.get(i + 1)
                 .unwrap_or_else(|| {
-                    eprintln!("Error: -t requires a target (e.g. wasm)");
+                    error!("Error: -t requires a target (e.g. wasm)");
                     std::process::exit(1);
                 })
                 .clone()

@@ -3,6 +3,7 @@ use crate::mir::analysis::cfg;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::{BlockId, Function, Instruction, Opcode, Operand, Program, Reg, Terminator, Type};
+use log::debug;
 use std::collections::{HashMap, HashSet};
 
 /// Converts MIR to SSA Form
@@ -245,27 +246,19 @@ impl MirVisitor for MirSSAPass {
                 .insert(function.virtual_entry);
         }
 
-        if crate::is_verbose() {
-            println!("Function: '{}'", function.name);
-        }
+        debug!("Function: '{}'", function.name);
         let (predecessors, successors) = cfg::compute_cfg(function);
         let dominators = cfg::compute_dominators(function, &predecessors);
 
-        if crate::is_verbose() {
-            println!("Dominators:");
-            for (b, s) in &dominators {
-                println!("{:?}; {:?}", b, s);
-            }
+        debug!("Dominators:");
+        for (b, s) in &dominators {
+            debug!("{:?}; {:?}", b, s);
         }
         let dtree = cfg::compute_dominator_tree(function, &dominators, &successors);
-        if crate::is_verbose() {
-            println!("Dominator Tree (map)\n{:?}", dtree);
-        }
+        debug!("Dominator Tree (map)\n{:?}", dtree);
 
         let dfront = cfg::compute_dominator_frontier(&dtree, &predecessors);
-        if crate::is_verbose() {
-            println!("Dominator Frontier (set)\n{:?}", dfront);
-        }
+        debug!("Dominator Frontier (set)\n{:?}", dfront);
 
         let original_registers = Self::insert_phi_nodes(function, &dfront);
         Self::rename_variables_to_ssa(function, &dtree, &successors, &original_registers);

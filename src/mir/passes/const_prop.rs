@@ -2,6 +2,7 @@ use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::{Function, Instruction, Opcode, Operand, Program, Reg};
+use log::debug;
 use std::collections::HashMap;
 
 pub struct MirConstPropPass {
@@ -85,7 +86,7 @@ impl MirVisitor for MirConstPropPass {
         self.constant_map.clear();
     }
 
-    //@NOTE : This is just Constant Propagation, NOT Constant folding
+    //@NOTE : This is just Constant Propagation, only mild Constant folding
     // it does not even remove the redundant instructions, as we're leaving that to the DCE>
     // In the future, we will implement an `SSAConstantFolder` module and use that in here,
     // and then instead of checking if the rhs is constant, we can do this:
@@ -112,9 +113,7 @@ impl MirVisitor for MirConstPropPass {
                 match arg {
                     Operand::Reg(r) => {
                         if let Some(constant) = self.constant_map.get(r) {
-                            if crate::is_verbose() {
-                                println!("Replacing register r{} with constant {:?}", r, constant);
-                            }
+                            debug!("Replacing register r{} with constant {:?}", r, constant);
                             *arg = constant.clone();
                         }
                     }
@@ -122,12 +121,10 @@ impl MirVisitor for MirConstPropPass {
                     Operand::Pair(_, op) => {
                         if let Operand::Reg(r) = op.as_ref() {
                             if let Some(constant) = self.constant_map.get(r) {
-                                if crate::is_verbose() {
-                                    println!(
-                                        "Replacing (phi) register r{} with constant {:?}",
-                                        r, constant
-                                    );
-                                }
+                                debug!(
+                                    "Replacing (phi) register r{} with constant {:?}",
+                                    r, constant
+                                );
                                 **op = constant.clone();
                             }
                         }
@@ -144,13 +141,11 @@ impl MirVisitor for MirConstPropPass {
             self.constant_map
                 .entry(instruction.dest)
                 .or_insert(instruction.args[0].clone());
-            if crate::is_verbose() {
-                println!(
-                    "Register r{} is being assigned as a constant with value{:?}, adding it to `constant_map`",
-                    instruction.dest,
-                    &instruction.args[0]
-                );
-            }
+            debug!(
+                "Register r{} is being assigned as a constant with value {:?}, adding it to `constant_map`",
+                instruction.dest,
+                &instruction.args[0]
+            );
         }
     }
 

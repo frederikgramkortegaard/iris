@@ -2,6 +2,7 @@ use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::{Function, Instruction, Opcode, Operand, Program, Reg, Terminator};
+use log::debug;
 use std::collections::HashMap;
 
 pub struct MirCopyPropPass {
@@ -50,12 +51,10 @@ impl MirVisitor for MirCopyPropPass {
                     if let Operand::Pair(_, op) = arg {
                         if let Operand::Reg(src) = op.as_mut() {
                             if let Some(&r) = self.copy_map.get(src) {
-                                if crate::is_verbose() {
-                                    println!(
-                                        "Replacing (phi) register r{} with constant {:?}",
-                                        src, r
-                                    );
-                                }
+                                debug!(
+                                    "Replacing (phi) register r{} with copy r{}",
+                                    src, r
+                                );
                                 *src = r; // mutate the register inside, keep the Pair
                             }
                         }
@@ -70,9 +69,7 @@ impl MirVisitor for MirCopyPropPass {
         for arg in &mut instruction.args {
             if let Operand::Reg(src) = arg {
                 if let Some(&r) = self.copy_map.get(src) {
-                    if crate::is_verbose() {
-                        println!("Replacing register r{} with constant {:?}", src, r);
-                    }
+                    debug!("Replacing register r{} with copy r{}", src, r);
                     *arg = Operand::Reg(r)
                 }
             }

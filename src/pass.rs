@@ -1,4 +1,5 @@
 use crate::diagnostics::DiagnosticCollector;
+use log::debug;
 
 /// Generic trait for compiler passes that can be run in a pipeline.
 pub trait Pass<IR> {
@@ -57,10 +58,8 @@ fn print_diagnostics(diagnostics: &DiagnosticCollector) -> Result<(), Box<dyn st
     for warning in &diagnostics.warnings {
         eprintln!("Warning: {}", warning);
     }
-    if crate::is_verbose() {
-        for info in &diagnostics.info {
-            println!("Info: {}", info);
-        }
+    for info in &diagnostics.info {
+        debug!("Info: {}", info);
     }
 
     if diagnostics.has_errors() {
