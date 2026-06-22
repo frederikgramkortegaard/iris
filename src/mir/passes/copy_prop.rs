@@ -51,10 +51,7 @@ impl MirVisitor for MirCopyPropPass {
                     if let Operand::Pair(_, op) = arg {
                         if let Operand::Reg(src) = op.as_mut() {
                             if let Some(&r) = self.copy_map.get(src) {
-                                debug!(
-                                    "Replacing (phi) register r{} with copy r{}",
-                                    src, r
-                                );
+                                debug!("Replacing (phi) register r{} with copy r{}", src, r);
                                 *src = r; // mutate the register inside, keep the Pair
                             }
                         }

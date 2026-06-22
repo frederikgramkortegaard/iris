@@ -1,7 +1,7 @@
+use crate::ast::Statement;
 use crate::mir::analysis::cfg;
 use crate::mir::{BlockId, Function, Operand, Reg};
 use std::collections::{HashMap, HashSet};
-use crate::ast::Statement;
 
 pub type Header = BlockId;
 pub type Latch = BlockId;
@@ -30,8 +30,7 @@ pub struct Loop {
     pub body: HashSet<BlockId>,
     pub parent: Option<BlockId>,
 
-
-    // 
+    //
     pub ast: Option<Statement>,
 
     // Analysis results (populated later)
