@@ -17,6 +17,7 @@ pub struct MirDCEPass {
     phi_defmap: HashMap<Reg, (BlockId, PhiIndex)>,
     live: HashSet<Reg>,
     worklist: Vec<Reg>,
+    changed: bool,
 }
 
 impl Default for MirDCEPass {
@@ -33,7 +34,13 @@ impl MirDCEPass {
             phi_defmap: HashMap::new(),
             live: HashSet::new(),
             worklist: vec![],
+            changed: false,
         }
+    }
+
+    /// Whether the last run modified the program
+    pub fn changed(&self) -> bool {
+        self.changed
     }
 
     fn has_side_effects(&self, op: &Opcode) -> bool {
@@ -68,12 +75,14 @@ impl MirDCEPass {
             }
         }
     }
-    fn sweep(&self, function: &mut Function) {
+    fn sweep(&mut self, function: &mut Function) {
+        let mut removed = false;
         for (_, block) in function.arena.iter_mut() {
             block.instructions.retain(|inst| {
                 let keep = self.live.contains(&inst.dest);
                 if !keep {
                     debug!("Removing Instruction {:?} from block", inst);
+                    removed = true;
                 }
                 keep
             });
@@ -81,10 +90,12 @@ impl MirDCEPass {
                 let keep = self.live.contains(&phi.dest);
                 if !keep {
                     debug!("Removing dead Phi {:?} from block", phi);
+                    removed = true;
                 }
                 keep
             });
         }
+        self.changed = self.changed || removed;
     }
 }
 

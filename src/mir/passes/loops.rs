@@ -13,6 +13,7 @@ pub use crate::mir::analysis::loops::Loop;
 pub struct MirLoopPass {
     diagnostics: DiagnosticCollector,
     defs: BTreeMap<Reg, BlockId>,
+    changed: bool,
 }
 
 impl Default for MirLoopPass {
@@ -26,7 +27,13 @@ impl MirLoopPass {
         MirLoopPass {
             diagnostics: DiagnosticCollector::new(),
             defs: BTreeMap::new(),
+            changed: false,
         }
+    }
+
+    /// Whether the last run modified the program
+    pub fn changed(&self) -> bool {
+        self.changed
     }
 
     fn find_invariants(&mut self, function: &mut Function, lop: &Loop) -> BTreeSet<Reg> {
@@ -97,6 +104,7 @@ impl MirLoopPass {
             if to_hoist.is_empty() {
                 continue;
             }
+            self.changed = true;
 
             // Preheader
             let preheader = function.arena.alloc(BasicBlock {

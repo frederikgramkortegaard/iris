@@ -6,6 +6,7 @@ use std::collections::HashSet;
 
 pub struct MirDeadBlockEliminationPass {
     diagnostics: DiagnosticCollector,
+    changed: bool,
 }
 
 impl Default for MirDeadBlockEliminationPass {
@@ -18,7 +19,13 @@ impl MirDeadBlockEliminationPass {
     pub fn new() -> Self {
         MirDeadBlockEliminationPass {
             diagnostics: DiagnosticCollector::new(),
+            changed: false,
         }
+    }
+
+    /// Whether the last run modified the program
+    pub fn changed(&self) -> bool {
+        self.changed
     }
 }
 
@@ -82,6 +89,7 @@ impl MirVisitor for MirDeadBlockEliminationPass {
                 };
                 if let Some(t) = new_term {
                     block.terminator = t;
+                    self.changed = true;
                 }
             }
         }
@@ -98,6 +106,7 @@ impl MirVisitor for MirDeadBlockEliminationPass {
 
         for id in dead {
             function.arena.remove(id);
+            self.changed = true;
         }
     }
 }

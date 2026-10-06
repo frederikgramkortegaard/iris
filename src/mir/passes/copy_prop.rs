@@ -8,6 +8,7 @@ use std::collections::HashMap;
 pub struct MirCopyPropPass {
     diagnostics: DiagnosticCollector,
     copy_map: HashMap<Reg, Reg>,
+    changed: bool,
 }
 
 impl Default for MirCopyPropPass {
@@ -21,7 +22,13 @@ impl MirCopyPropPass {
         MirCopyPropPass {
             diagnostics: DiagnosticCollector::new(),
             copy_map: HashMap::new(),
+            changed: false,
         }
+    }
+
+    /// Whether the last run modified the program
+    pub fn changed(&self) -> bool {
+        self.changed
     }
 }
 
@@ -53,6 +60,7 @@ impl MirVisitor for MirCopyPropPass {
                             if let Some(&r) = self.copy_map.get(src) {
                                 debug!("Replacing (phi) register r{} with copy r{}", src, r);
                                 *src = r; // mutate the register inside, keep the Pair
+                                self.changed = true;
                             }
                         }
                     }
@@ -67,7 +75,8 @@ impl MirVisitor for MirCopyPropPass {
             if let Operand::Reg(src) = arg {
                 if let Some(&r) = self.copy_map.get(src) {
                     debug!("Replacing register r{} with copy r{}", src, r);
-                    *arg = Operand::Reg(r)
+                    *arg = Operand::Reg(r);
+                    self.changed = true;
                 }
             }
         }
@@ -85,7 +94,8 @@ impl MirVisitor for MirCopyPropPass {
                 value: Some(Operand::Reg(r)),
             } => {
                 if let Some(&src) = self.copy_map.get(r) {
-                    *r = src
+                    *r = src;
+                    self.changed = true;
                 }
             }
             Terminator::BrIf {
@@ -93,7 +103,8 @@ impl MirVisitor for MirCopyPropPass {
                 ..
             } => {
                 if let Some(&src) = self.copy_map.get(r) {
-                    *r = src
+                    *r = src;
+                    self.changed = true;
                 }
             }
             _ => {}

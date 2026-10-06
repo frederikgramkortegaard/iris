@@ -19,8 +19,9 @@ use crate::mir::passes::scev::MirSCEVPass;
 use crate::mir::passes::ssa::MirSSAPass;
 use crate::mir::passes::tailcall::MirTailCallPass;
 
-use crate::pass::RunPass;
-use log::{debug, error};
+use crate::hir::visitor::Visitor;
+use crate::pass::{print_diagnostics, RunPass};
+use log::{debug, error, warn};
 
 use std::fs;
 
@@ -104,19 +105,47 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Lower HIR to MIR
     let mut lowering_pass = LoweringPass::new();
     let mut mir = lowering_pass.lower(&mut program);
+    print_diagnostics(lowering_pass.diagnostics())?;
 
     // Run MIR passes
     mir.run_pass(&mut MirTailCallPass::new())?
         .run_pass(&mut MirSSAPass::new())?;
 
-    // Optimize in SSA form
-    for _ in 0..3 {
-        mir.run_pass(&mut MirConstPropPass::new())?
-            .run_pass(&mut MirDeadBlockEliminationPass::new())?
-            .run_pass(&mut MirLoopPass::new())?
-            .run_pass(&mut MirGVNPass::new())?
-            .run_pass(&mut MirCopyPropPass::new())?
-            .run_pass(&mut MirDCEPass::new())?;
+    // Optimize in SSA form until nothing changes anymore
+    const MAX_OPT_ITERATIONS: usize = 20;
+    for i in 1.. {
+        let mut const_prop = MirConstPropPass::new();
+        let mut dbe = MirDeadBlockEliminationPass::new();
+        let mut loops = MirLoopPass::new();
+        let mut gvn = MirGVNPass::new();
+        let mut copy_prop = MirCopyPropPass::new();
+        let mut dce = MirDCEPass::new();
+
+        mir.run_pass(&mut const_prop)?
+            .run_pass(&mut dbe)?
+            .run_pass(&mut loops)?
+            .run_pass(&mut gvn)?
+            .run_pass(&mut copy_prop)?
+            .run_pass(&mut dce)?;
+
+        let changed = const_prop.changed()
+            || dbe.changed()
+            || loops.changed()
+            || gvn.changed()
+            || copy_prop.changed()
+            || dce.changed();
+
+        if !changed {
+            debug!("Optimizer reached a fixed point after {} iteration(s)", i);
+            break;
+        }
+        if i == MAX_OPT_ITERATIONS {
+            warn!(
+                "Optimizer did not reach a fixed point after {} iterations, giving up",
+                MAX_OPT_ITERATIONS
+            );
+            break;
+        }
     }
 
     mir.run_pass(&mut MirSCEVPass::new())?;

@@ -4,7 +4,8 @@ use crate::mir::visitor::MirVisitor;
 use crate::mir::Program;
 use crate::mir::{Function, Instruction, Opcode, Operand, Terminator};
 
-/// Dead Code Elimination pass
+/// Tail call optimization: rewrites a self-recursive call in return position
+/// into copies to the parameters and a jump back to the entry block.
 pub struct MirTailCallPass {
     diagnostics: DiagnosticCollector,
 }
@@ -23,7 +24,6 @@ impl MirTailCallPass {
     }
 }
 
-// The visitor is used to mark liveness and build the defmap
 impl MirVisitor for MirTailCallPass {
     type Output = ();
 

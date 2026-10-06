@@ -255,32 +255,3 @@ impl Function {
 pub struct Program {
     pub functions: Vec<Function>,
 }
-
-// Example usage:
-//
-// let mut func = MirFunction::new("test".to_string());
-//
-// // Create a new block
-// let block_id = func.arena.alloc(BasicBlock {
-//     instructions: vec![
-//         Instruction {
-//             dest: "x".to_string(),
-//             op: Opcode::Add,
-//             typ: Type::F64,
-//             args: ["a".to_string(), "b".to_string()],
-//         }
-//     ],
-//     terminator: Terminator::Ret { value: Some("x".to_string()) },
-// });
-//
-// // Set entry to branch to our new block
-// func.block_mut(func.entry).terminator = Terminator::Br { target: block_id };
-//
-// // Access blocks
-// let block = func.block(block_id);
-// println!("Block has {} instructions", block.instructions.len());
-//
-// // Iterate over all blocks
-// for (id, block) in func.arena.iter() {
-//     println!("Block {:?} has {} instructions", id, block.instructions.len());
-//

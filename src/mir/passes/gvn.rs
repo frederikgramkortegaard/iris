@@ -41,6 +41,7 @@ impl From<&Operand> for GVNOperand {
 pub struct MirGVNPass {
     diagnostics: DiagnosticCollector,
     valuemap: HashMap<GVNKey, GVNValue>,
+    changed: bool,
 }
 
 impl Default for MirGVNPass {
@@ -54,7 +55,13 @@ impl MirGVNPass {
         MirGVNPass {
             diagnostics: DiagnosticCollector::new(),
             valuemap: HashMap::new(),
+            changed: false,
         }
+    }
+
+    /// Whether the last run modified the program
+    pub fn changed(&self) -> bool {
+        self.changed
     }
 
     fn walk_domtree(
@@ -74,7 +81,8 @@ impl MirGVNPass {
 
             if let Some(r) = self.valuemap.get(&key) {
                 instruction.op = Opcode::Copy;
-                instruction.args = vec![Operand::Reg(*r)]
+                instruction.args = vec![Operand::Reg(*r)];
+                self.changed = true;
             } else {
                 added.push(key.clone());
                 self.valuemap.insert(key, instruction.dest);
@@ -89,7 +97,6 @@ impl MirGVNPass {
     }
 }
 
-// The visitor is used to mark liveness and build the defmap
 impl MirVisitor for MirGVNPass {
     type Output = ();
 

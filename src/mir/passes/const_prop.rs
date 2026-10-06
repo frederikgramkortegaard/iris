@@ -8,6 +8,7 @@ use std::collections::HashMap;
 pub struct MirConstPropPass {
     diagnostics: DiagnosticCollector,
     constant_map: HashMap<Reg, Operand>,
+    changed: bool,
 }
 
 impl Default for MirConstPropPass {
@@ -21,7 +22,13 @@ impl MirConstPropPass {
         MirConstPropPass {
             diagnostics: DiagnosticCollector::new(),
             constant_map: HashMap::new(),
+            changed: false,
         }
+    }
+
+    /// Whether the last run modified the program
+    pub fn changed(&self) -> bool {
+        self.changed
     }
 
     fn is_rhs_constant(&self, op: &Operand) -> bool {
@@ -107,6 +114,7 @@ impl MirVisitor for MirConstPropPass {
             if let Some(result) = self.fold(&instruction.op, &instruction.args) {
                 instruction.op = Opcode::Copy;
                 instruction.args = vec![result];
+                self.changed = true;
             }
         } else {
             for arg in &mut instruction.args {
@@ -115,6 +123,7 @@ impl MirVisitor for MirConstPropPass {
                         if let Some(constant) = self.constant_map.get(r) {
                             debug!("Replacing register r{} with constant {:?}", r, constant);
                             *arg = constant.clone();
+                            self.changed = true;
                         }
                     }
                     // Phi args are Pair(block, value) -- propagate into the inner value
@@ -126,6 +135,7 @@ impl MirVisitor for MirConstPropPass {
                                     r, constant
                                 );
                                 **op = constant.clone();
+                                self.changed = true;
                             }
                         }
                     }
@@ -155,6 +165,7 @@ impl MirVisitor for MirConstPropPass {
                 if let Operand::Reg(r) = cond {
                     if let Some(constant) = self.constant_map.get(r) {
                         *cond = constant.clone();
+                        self.changed = true;
                     }
                 }
             }
@@ -162,6 +173,7 @@ impl MirVisitor for MirConstPropPass {
                 if let Operand::Reg(r) = op {
                     if let Some(constant) = self.constant_map.get(r) {
                         *op = constant.clone();
+                        self.changed = true;
                     }
                 }
             }
