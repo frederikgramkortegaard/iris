@@ -23,7 +23,8 @@ fn optimize_nested(inst: WatInstruction) -> WatInstruction {
 }
 
 /// Peephole optimize a flat instruction list.
-/// - LocalSet(x) followed by LocalGet(x): remove both, leave value on stack.
+/// - LocalSet(x) followed by LocalGet(x): fuse into LocalTee(x).
+///   (can't just delete the pair, x might be read again later)
 fn optimize(instructions: Vec<WatInstruction>) -> Vec<WatInstruction> {
     let mut result = Vec::with_capacity(instructions.len());
     let mut iter = instructions.into_iter().peekable();
@@ -31,6 +32,7 @@ fn optimize(instructions: Vec<WatInstruction>) -> Vec<WatInstruction> {
     while let Some(inst) = iter.next() {
         match (&inst, iter.peek()) {
             (WatInstruction::LocalSet(a), Some(WatInstruction::LocalGet(b))) if a == b => {
+                result.push(WatInstruction::LocalTee(*a));
                 iter.next(); // consume the LocalGet
             }
             _ => {

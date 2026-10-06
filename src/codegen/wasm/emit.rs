@@ -21,6 +21,7 @@ fn emit_instruction(inst: &WatInstruction, indent: usize) -> String {
         // Variables
         WatInstruction::LocalGet(i) => format!("{pad}local.get $r{i}"),
         WatInstruction::LocalSet(i) => format!("{pad}local.set $r{i}"),
+        WatInstruction::LocalTee(i) => format!("{pad}local.tee $r{i}"),
 
         // f64 arithmetic
         WatInstruction::F64Add => format!("{pad}f64.add"),

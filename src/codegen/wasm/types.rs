@@ -73,6 +73,7 @@ pub enum WatInstruction {
     // Variables
     LocalGet(u32),
     LocalSet(u32),
+    LocalTee(u32),
 
     // Structured control flow
     Block {
