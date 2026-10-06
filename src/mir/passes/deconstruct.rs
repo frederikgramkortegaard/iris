@@ -2,7 +2,7 @@ use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::{BlockId, Function, Instruction, Opcode, Operand, Program, Reg, Type};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 pub struct MirSSADeconstructionPass {
     diagnostics: DiagnosticCollector,
@@ -41,8 +41,8 @@ impl MirSSADeconstructionPass {
     fn collect_phi_copies(
         &self,
         function: &Function,
-    ) -> HashMap<BlockId, Vec<(Reg, Operand, Type)>> {
-        let mut copies = HashMap::new();
+    ) -> BTreeMap<BlockId, Vec<(Reg, Operand, Type)>> {
+        let mut copies = BTreeMap::new();
 
         for (_, block) in function.arena.iter() {
             for phi in &block.phi_nodes {
@@ -66,7 +66,7 @@ impl MirSSADeconstructionPass {
     fn sequentialize_copies(
         &self,
         function: &mut Function,
-        phi_copies: &HashMap<BlockId, Vec<(Reg, Operand, Type)>>,
+        phi_copies: &BTreeMap<BlockId, Vec<(Reg, Operand, Type)>>,
     ) {
         // DFS over the copy graph for one predecessor block.
         //
@@ -85,13 +85,15 @@ impl MirSSADeconstructionPass {
         //   When we reach a Grey neighbor, we have a back edge -- a cycle.
         //   We break it by:
         //     1. Allocating a fresh tmp register
-        //     2. Emitting: tmp <- grey_node  (save the value before it gets clobbered)
-        //     3. Emitting: grey_node <- tmp  (satisfy grey_node's copy using the saved value)
-        //     4. Marking grey_node Black immediately so post-order doesn't emit it again
+        //     2. Emitting: tmp <- node  (node is what the grey node wants to
+        //        read, and it gets overwritten while we unwind)
+        //     3. The grey node then reads tmp instead, in its normal
+        //        post-order emission (tracked in the saved map)
         fn dfs(
             node: Reg,
             copies: &[(Reg, Operand, Type)],
             colors: &mut HashMap<Reg, Color>,
+            saved: &mut HashMap<Reg, Reg>,
             result: &mut Vec<Instruction>,
             next_free_reg: &mut Reg,
         ) {
@@ -109,9 +111,8 @@ impl MirSSADeconstructionPass {
                 match colors.get(&dst) {
                     Some(Color::Grey) => {
                         // Back edge: dst is on the current DFS path, so we have a cycle.
-                        // dst's value is about to be overwritten before node gets to read it.
-                        // Break the cycle by saving dst now into a tmp, then emitting
-                        // dst's copy using that tmp. Mark dst Black to skip it in post-order.
+                        // dst wants to read node, but node gets overwritten on the
+                        // way back up. Save it now, dst reads the tmp later.
                         let tmp = *next_free_reg;
                         *next_free_reg += 1;
 
@@ -122,49 +123,39 @@ impl MirSSADeconstructionPass {
                             .map(|(_, _, t)| *t)
                             .unwrap_or(Type::I64);
 
-                        // tmp <- dst  (save dst's current value before it gets clobbered)
+                        // tmp <- node  (save node's current value before it gets clobbered)
                         result.push(Instruction {
                             dest: tmp,
                             op: Opcode::Copy,
                             typ: dst_typ,
-                            args: vec![Operand::Reg(dst)],
+                            args: vec![Operand::Reg(node)],
                         });
 
-                        // dst <- tmp  (dst was supposed to get node's value; node is Grey
-                        //             meaning it hasn't been overwritten yet, but dst's src
-                        //             is node which is the cycle partner -- use tmp instead)
-                        result.push(Instruction {
-                            dest: dst,
-                            op: Opcode::Copy,
-                            typ: dst_typ,
-                            args: vec![Operand::Reg(tmp)],
-                        });
-
-                        // Mark Black so post-order emission skips dst
-                        colors.insert(dst, Color::Black);
+                        saved.insert(dst, tmp);
                     }
                     Some(Color::Black) => {
                         // Already fully processed, skip
                     }
                     None => {
                         // Unvisited, recurse into dst before emitting node
-                        dfs(dst, copies, colors, result, next_free_reg);
+                        dfs(dst, copies, colors, saved, result, next_free_reg);
                     }
                 }
             }
 
-            // Post-order: all nodes that read from node are done.
-            // If node was already handled by the cycle case above, it is Black and we skip it.
-            // Otherwise emit node's copy now -- safe because all readers of node are done.
-            if colors.get(&node) != Some(&Color::Black) {
-                if let Some((_, src, typ)) = copies.iter().find(|(dst, _, _)| *dst == node) {
-                    result.push(Instruction {
-                        dest: node,
-                        op: Opcode::Copy,
-                        typ: *typ,
-                        args: vec![src.clone()],
-                    });
-                }
+            // Post-order: all nodes that read from node are done, safe to emit
+            // node's copy now. If the cycle case saved our source, read the tmp.
+            if let Some((_, src, typ)) = copies.iter().find(|(dst, _, _)| *dst == node) {
+                let src = match saved.get(&node) {
+                    Some(&tmp) => Operand::Reg(tmp),
+                    None => src.clone(),
+                };
+                result.push(Instruction {
+                    dest: node,
+                    op: Opcode::Copy,
+                    typ: *typ,
+                    args: vec![src],
+                });
             }
 
             colors.insert(node, Color::Black);
@@ -172,6 +163,7 @@ impl MirSSADeconstructionPass {
 
         for (pred_block_id, copies) in phi_copies {
             let mut colors: HashMap<Reg, Color> = HashMap::new();
+            let mut saved: HashMap<Reg, Reg> = HashMap::new();
             let mut result: Vec<Instruction> = vec![];
 
             for (dst, _, _) in copies {
@@ -180,6 +172,7 @@ impl MirSSADeconstructionPass {
                         *dst,
                         copies,
                         &mut colors,
+                        &mut saved,
                         &mut result,
                         &mut function.next_free_reg,
                     );
