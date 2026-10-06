@@ -1,7 +1,10 @@
 use crate::diagnostics::DiagnosticCollector;
+use crate::mir::analysis::cfg;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{BlockId, Function, Instruction, Opcode, Operand, Program, Reg, Type};
+use crate::mir::{
+    BasicBlock, BlockId, Function, Instruction, Opcode, Operand, Program, Reg, Terminator, Type,
+};
 use std::collections::{BTreeMap, HashMap};
 
 pub struct MirSSADeconstructionPass {
@@ -23,6 +26,63 @@ impl MirSSADeconstructionPass {
     pub fn new() -> Self {
         MirSSADeconstructionPass {
             diagnostics: DiagnosticCollector::new(),
+        }
+    }
+
+    /// Split critical edges (pred has multiple successors AND succ has
+    /// multiple predecessors). Phi copies get appended to the end of the
+    /// pred block, but on a critical edge that code runs on all of the
+    /// pred's out-edges, not just the one leading to the phi. One-armed ifs
+    /// produce exactly this shape, so we stick an empty block on the edge
+    /// and the copies land there instead.
+    fn split_critical_edges(&self, function: &mut Function) {
+        let (preds, succs) = cfg::compute_cfg(function);
+
+        let mut to_split: Vec<(BlockId, BlockId)> = Vec::new();
+        for (block_id, block_succs) in &succs {
+            if block_succs.len() < 2 {
+                continue;
+            }
+            for &succ in block_succs {
+                if preds[&succ].len() >= 2 && !to_split.contains(&(*block_id, succ)) {
+                    to_split.push((*block_id, succ));
+                }
+            }
+        }
+
+        for (pred, succ) in to_split {
+            let split = function.arena.alloc(BasicBlock {
+                instructions: Vec::new(),
+                terminator: Terminator::Br { target: succ },
+                phi_nodes: Vec::new(),
+                note: Some("edge_split".to_string()),
+            });
+
+            match &mut function.arena.get_mut(pred).terminator {
+                Terminator::BrIf {
+                    then_bb, else_bb, ..
+                } => {
+                    if *then_bb == succ {
+                        *then_bb = split;
+                    }
+                    if *else_bb == succ {
+                        *else_bb = split;
+                    }
+                }
+                Terminator::Br { target } if *target == succ => *target = split,
+                _ => {}
+            }
+
+            // phi entries naming the old pred now come in via the split block
+            for phi in &mut function.arena.get_mut(succ).phi_nodes {
+                for arg in &mut phi.args {
+                    if let Operand::Pair(b, _) = arg {
+                        if *b == pred {
+                            *b = split;
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -197,10 +257,11 @@ impl MirVisitor for MirSSADeconstructionPass {
     }
 
     fn visit_function(&mut self, function: &mut Function) {
+        // One-armed ifs (and LICM preheader rewiring) do produce critical
+        // edges, so they must be split before the phi copies are placed.
+        self.split_critical_edges(function);
+
         let copies = self.collect_phi_copies(function);
-        // Usually, you'd also do splitting of critical edges, but because
-        // our IR is designed with structurec control flow (e.g. we create merge blocks proactively
-        // instead of reactively) we don't actually need to do this
 
         // - Sequentialize parallel copies (handle swap problem)
         self.sequentialize_copies(function, &copies);
