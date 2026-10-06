@@ -154,11 +154,7 @@ impl Visitor for TypecheckingPass {
             }
             // Auto with initializer - infer the type
             (Type::Base(BaseType::Auto), Some(init)) => {
-                if let Some(init_type) = self.visit_expression(init) {
-                    variable.typ = init_type;
-                } else {
-                    return None;
-                }
+                variable.typ = self.visit_expression(init)?;
             }
             // Concrete type with no initializer - that's fine
             (_, None) => {
@@ -493,13 +489,11 @@ impl Visitor for TypecheckingPass {
                         return None;
                     }
 
-                    // collect all argument types
+                    // collect all argument types, bail if one failed (error
+                    // already reported)
                     let mut arg_types = Vec::new();
                     for arg_expr in args {
-                        match self.visit_expression(arg_expr) {
-                            Some(t) => arg_types.push(t),
-                            None => return None, // Error already reported
-                        }
+                        arg_types.push(self.visit_expression(arg_expr)?);
                     }
 
                     // check types

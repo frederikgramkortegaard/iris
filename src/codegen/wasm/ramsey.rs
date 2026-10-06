@@ -3,19 +3,21 @@ use crate::mir::analysis::cfg::{DominatorTree, Predecessors, Successors};
 use crate::mir::BlockId;
 use std::collections::HashSet;
 
-/// Checks if `block_id` has a back edge to a node inside `region` using dominator info.
-pub fn has_back_edge_in_region(
-    block_id: BlockId,
+/// True if any block dominated by start branches back to header.
+/// Everything start dominates is also dominated by header, so such an edge
+/// is always a back edge. The latch can sit arbitrarily deep (below an if
+/// in the loop body for example), checking only direct successors misses
+/// those loops entirely.
+pub fn reaches_back_to(
+    header: BlockId,
+    start: BlockId,
     succs: &Successors,
-    region: &HashSet<BlockId>,
     doms: &DominatorTree,
 ) -> bool {
-    for &succ in &succs[&block_id] {
-        if region.contains(&succ) && doms[&block_id] == succ {
-            return true;
-        }
-    }
-    false
+    let subtree = crate::mir::analysis::cfg::dominated_subtree(doms, start);
+    subtree
+        .iter()
+        .any(|b| succs.get(b).is_some_and(|ss| ss.contains(&header)))
 }
 
 /// Recursively structures a CFG into canonical structured nodes (loops, if-else, sequences).
@@ -34,10 +36,10 @@ pub fn ramsey_structuring(
         .filter(|&&succ| region.contains(&succ))
         .collect();
 
-    // This block is a loop header if any successor has a back edge to it
+    // This block is a loop header if any successor can reach back to it
     let has_loop_edge = outs
         .iter()
-        .any(|&&succ| has_back_edge_in_region(succ, succs, &region, dom_tree));
+        .any(|&&succ| reaches_back_to(block_id, succ, succs, dom_tree));
 
     if has_loop_edge {
         // This block is a loop header
@@ -46,7 +48,7 @@ pub fn ramsey_structuring(
         let mut body_succs = Vec::new();
         let mut exit_succs = Vec::new();
         for &&s in &outs {
-            if has_back_edge_in_region(s, succs, &region, dom_tree) {
+            if reaches_back_to(block_id, s, succs, dom_tree) {
                 body_succs.push(s);
             } else {
                 exit_succs.push(s);
