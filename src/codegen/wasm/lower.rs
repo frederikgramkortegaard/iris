@@ -198,13 +198,12 @@ fn lower_node(node: &StructuredNode, function: &Function) -> Vec<WatInstruction>
                 _ => unreachable!("If node's cond block must end with BrIf"),
             }
 
-            // Emit if/else with recursively lowered branches
+            // Emit if/else with recursively lowered branches. Arms that don't
+            // return fall through into whatever comes after the if.
             wat.push(WatInstruction::If {
                 then_body: lower_node(then_branch, function),
                 else_body: lower_node(else_branch, function),
             });
-            // Both branches return, so this point is never reached.
-            wat.push(WatInstruction::Unreachable);
             wat
         }
 
@@ -283,10 +282,16 @@ fn lower_function(function: &Function) -> WatFunction {
     let (preds, succs) = compute_cfg(function);
     let dom_sets = compute_dominators(function, &preds);
     let dom_tree = compute_dominator_tree(function, &dom_sets, &succs);
-    let structure = ramsey_structuring(function.entry, &dom_tree, &succs);
+    let structure = ramsey_structuring(function.entry, &dom_tree, &succs, &preds);
 
     // Lower the structured tree into WAT instructions
-    let body = lower_node(&structure, function);
+    let mut body = lower_node(&structure, function);
+
+    // if every path returns this point is dead, but the validator still
+    // wants the stack to match the result type at the end
+    if result.is_some() {
+        body.push(WatInstruction::Unreachable);
+    }
 
     WatFunction {
         name: function.name.clone(),
