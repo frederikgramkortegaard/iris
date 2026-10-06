@@ -1,7 +1,7 @@
 pub mod analysis;
 pub mod passes;
 pub mod visitor;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum Opcode {
@@ -62,7 +62,7 @@ impl Operand {
     }
 }
 /// Type-safe block identifier (index into BlockArena)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BlockId(usize);
 
 impl BlockId {
@@ -107,10 +107,12 @@ pub enum Terminator {
     Unreachable,
 }
 
-/// Arena for allocating basic blocks
+/// Arena for allocating basic blocks.
+/// Backed by a BTreeMap so iteration is always in block id order --
+/// pass output must not depend on hash ordering.
 #[derive(Debug)]
 pub struct BlockArena {
-    blocks: HashMap<usize, BasicBlock>,
+    blocks: BTreeMap<usize, BasicBlock>,
     next_id: usize,
 }
 
@@ -123,7 +125,7 @@ impl Default for BlockArena {
 impl BlockArena {
     pub fn new() -> Self {
         BlockArena {
-            blocks: HashMap::new(),
+            blocks: BTreeMap::new(),
             next_id: 0,
         }
     }
@@ -146,23 +148,16 @@ impl BlockArena {
         self.blocks.get_mut(&id.0).expect("Invalid BlockId")
     }
 
-    /// Iterate over all blocks with their IDs (unordered)
+    /// Iterate over all blocks with their IDs, in block id order
     pub fn iter(&self) -> impl Iterator<Item = (BlockId, &BasicBlock)> {
         self.blocks.iter().map(|(&id, block)| (BlockId(id), block))
     }
 
-    /// Iterate mutably over all blocks with their IDs (unordered)
+    /// Iterate mutably over all blocks with their IDs, in block id order
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (BlockId, &mut BasicBlock)> {
         self.blocks
             .iter_mut()
             .map(|(&id, block)| (BlockId(id), block))
-    }
-
-    /// Iterate over all blocks sorted by BlockId (for deterministic output)
-    pub fn iter_sorted(&self) -> impl Iterator<Item = (BlockId, &BasicBlock)> {
-        let mut entries: Vec<_> = self.blocks.iter().collect();
-        entries.sort_by_key(|(id, _)| *id);
-        entries.into_iter().map(|(&id, block)| (BlockId(id), block))
     }
 
     /// Remove a block by ID
@@ -189,7 +184,7 @@ pub struct Function {
     pub arena: BlockArena,
     pub entry: BlockId,
     pub virtual_entry: BlockId,
-    pub definitions: HashMap<Reg, HashSet<BlockId>>,
+    pub definitions: BTreeMap<Reg, BTreeSet<BlockId>>,
     pub next_free_reg: Reg,
     pub loops: Option<Vec<analysis::loops::Loop>>,
 }
@@ -222,7 +217,7 @@ impl Function {
             arena,
             entry,
             virtual_entry,
-            definitions: HashMap::new(),
+            definitions: BTreeMap::new(),
             next_free_reg: 0,
             loops: None,
         }

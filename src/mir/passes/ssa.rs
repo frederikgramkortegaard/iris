@@ -4,7 +4,7 @@ use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::{BlockId, Function, Instruction, Opcode, Operand, Program, Reg, Terminator, Type};
 use log::debug;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 /// Converts MIR to SSA Form
 pub struct MirSSAPass {
@@ -32,11 +32,11 @@ impl MirSSAPass {
         function: &mut Function,
         dtree: &cfg::DominatorTree,
         successors: &cfg::Successors,
-        original_registers: &HashMap<BlockId, Vec<Reg>>,
+        original_registers: &BTreeMap<BlockId, Vec<Reg>>,
     ) {
         // Invert the Dominator Tree (Map) such that instead of Child -> Parent, it's Parent ->
         // Child
-        let mut inverted_dominator_tree: HashMap<BlockId, Vec<BlockId>> = HashMap::new();
+        let mut inverted_dominator_tree: BTreeMap<BlockId, Vec<BlockId>> = BTreeMap::new();
         for (&child, &parent) in dtree {
             inverted_dominator_tree
                 .entry(parent)
@@ -57,9 +57,9 @@ impl MirSSAPass {
             stack: &mut HashMap<Reg, Vec<usize>>,
             function: &mut Function,
             entry: BlockId,
-            children: &HashMap<BlockId, Vec<BlockId>>,
+            children: &BTreeMap<BlockId, Vec<BlockId>>,
             successors: &cfg::Successors,
-            original_registers: &HashMap<BlockId, Vec<Reg>>,
+            original_registers: &BTreeMap<BlockId, Vec<Reg>>,
         ) {
             // Track what we push so we can pop when leaving this block
             let mut pushed: Vec<Reg> = vec![];
@@ -178,10 +178,10 @@ impl MirSSAPass {
     fn insert_phi_nodes(
         function: &mut Function,
         dfront: &cfg::DominatorFrontier,
-    ) -> HashMap<BlockId, Vec<Reg>> {
-        let empty = HashSet::new();
+    ) -> BTreeMap<BlockId, Vec<Reg>> {
+        let empty = BTreeSet::new();
 
-        let mut original_registers: HashMap<BlockId, Vec<Reg>> = HashMap::new();
+        let mut original_registers: BTreeMap<BlockId, Vec<Reg>> = BTreeMap::new();
 
         let regs: Vec<_> = function.definitions.keys().copied().collect();
         for reg in regs {
@@ -191,7 +191,7 @@ impl MirSSAPass {
                 continue;
             }
 
-            let mut has_phi: HashSet<BlockId> = HashSet::new();
+            let mut has_phi: BTreeSet<BlockId> = BTreeSet::new();
             let mut worklist: Vec<BlockId> = definers.iter().copied().collect();
 
             while let Some(block) = worklist.pop() {

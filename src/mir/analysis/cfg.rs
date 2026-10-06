@@ -1,16 +1,19 @@
 use crate::mir::{BlockId, Function, Terminator};
-use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-pub type Predecessors = HashMap<BlockId, Vec<BlockId>>;
-pub type Successors = HashMap<BlockId, Vec<BlockId>>;
-pub type DominatorSets = HashMap<BlockId, HashSet<BlockId>>;
-pub type DominatorTree = HashMap<BlockId, BlockId>;
-pub type DominatorFrontier = HashMap<BlockId, HashSet<BlockId>>;
+// All of these get iterated by passes, and whatever order they hand out ends
+// up in the emitted code, so they have to be ordered maps -- a HashMap here
+// makes the compiler nondeterministic.
+pub type Predecessors = BTreeMap<BlockId, Vec<BlockId>>;
+pub type Successors = BTreeMap<BlockId, Vec<BlockId>>;
+pub type DominatorSets = BTreeMap<BlockId, BTreeSet<BlockId>>;
+pub type DominatorTree = BTreeMap<BlockId, BlockId>;
+pub type DominatorFrontier = BTreeMap<BlockId, BTreeSet<BlockId>>;
 
 pub fn compute_cfg(function: &Function) -> (Predecessors, Successors) {
-    let mut predecessors: Predecessors = HashMap::new();
-    let mut successors: Successors = HashMap::new();
+    let mut predecessors: Predecessors = BTreeMap::new();
+    let mut successors: Successors = BTreeMap::new();
 
     // Initialize
     for (block_id, _) in function.arena.iter() {
@@ -129,14 +132,14 @@ pub fn compute_rpo(entry: BlockId, successors: &Successors) -> Vec<BlockId> {
 ///   dominator sets, essentially maps to the common ancestors list of node's predecessors.
 ///
 pub fn compute_dominators(function: &Function, predecessors: &Predecessors) -> DominatorSets {
-    let mut dom: DominatorSets = HashMap::new();
+    let mut dom: DominatorSets = BTreeMap::new();
     let all_blocks: Vec<BlockId> = function.arena.iter().map(|(a, _)| a).collect();
 
     for &node in &all_blocks {
         if node == function.virtual_entry {
-            dom.insert(node, HashSet::from([function.virtual_entry]));
+            dom.insert(node, BTreeSet::from([function.virtual_entry]));
         } else {
-            dom.insert(node, HashSet::from_iter(all_blocks.clone()));
+            dom.insert(node, BTreeSet::from_iter(all_blocks.clone()));
         }
     }
 
@@ -154,7 +157,7 @@ pub fn compute_dominators(function: &Function, predecessors: &Predecessors) -> D
                 continue;
             }
 
-            let mut inter: HashSet<BlockId> = dom
+            let mut inter: BTreeSet<BlockId> = dom
                 .get(&preds[0])
                 .expect("predecessor must have dom set")
                 .clone();

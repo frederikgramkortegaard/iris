@@ -1,7 +1,7 @@
 use crate::ast::Statement;
 use crate::mir::analysis::cfg;
 use crate::mir::{BlockId, Function, Operand, Reg};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 pub type Header = BlockId;
 pub type Latch = BlockId;
@@ -27,14 +27,14 @@ pub struct Loop {
     // Core structure (required)
     pub header: BlockId,
     pub latches: Vec<BlockId>,
-    pub body: HashSet<BlockId>,
+    pub body: BTreeSet<BlockId>,
     pub parent: Option<BlockId>,
 
     //
     pub ast: Option<Statement>,
 
     // Analysis results (populated later)
-    pub invariants: HashSet<Reg>,
+    pub invariants: BTreeSet<Reg>,
     pub ivs: HashMap<Reg, InductionVar>,
     pub trip_count: TripCount,
     pub exits: Vec<BlockId>,
@@ -46,7 +46,7 @@ impl Loop {
     pub fn new(
         header: BlockId,
         latches: Vec<BlockId>,
-        body: HashSet<BlockId>,
+        body: BTreeSet<BlockId>,
         parent: Option<BlockId>,
     ) -> Self {
         Loop {
@@ -55,7 +55,7 @@ impl Loop {
             body,
             parent,
             ast: None,
-            invariants: HashSet::new(),
+            invariants: BTreeSet::new(),
             ivs: HashMap::new(),
             trip_count: TripCount::default(),
             exits: Vec::new(),
@@ -71,10 +71,10 @@ pub fn find_back_edges(
     function: &Function,
     successors: &cfg::Successors,
     dominators: &cfg::DominatorSets,
-) -> HashMap<Header, Vec<Latch>> {
-    let empty: HashSet<BlockId> = HashSet::new();
+) -> BTreeMap<Header, Vec<Latch>> {
+    let empty: BTreeSet<BlockId> = BTreeSet::new();
 
-    let mut back_edges: HashMap<Header, Vec<Latch>> = HashMap::new();
+    let mut back_edges: BTreeMap<Header, Vec<Latch>> = BTreeMap::new();
     for (id, _) in function.arena.iter() {
         for succ in successors.get(&id).unwrap_or(&vec![]) {
             if dominators.get(&id).unwrap_or(&empty).contains(succ) {
@@ -91,8 +91,8 @@ pub fn compute_body(
     header: BlockId,
     latches: &[BlockId],
     predecessors: &cfg::Predecessors,
-) -> HashSet<BlockId> {
-    let mut body = HashSet::new();
+) -> BTreeSet<BlockId> {
+    let mut body = BTreeSet::new();
     body.insert(header);
     let mut stack: Vec<BlockId> = latches.to_vec();
 
@@ -109,11 +109,11 @@ pub fn compute_body(
 
 /// Find all natural loops in the function
 pub fn find_loops(
-    back_edges: &HashMap<Header, Vec<Latch>>,
+    back_edges: &BTreeMap<Header, Vec<Latch>>,
     predecessors: &cfg::Predecessors,
 ) -> Vec<Loop> {
     // First compute all bodies
-    let mut loop_data: Vec<(BlockId, Vec<BlockId>, HashSet<BlockId>)> = vec![];
+    let mut loop_data: Vec<(BlockId, Vec<BlockId>, BTreeSet<BlockId>)> = vec![];
     for (header, latches) in back_edges {
         let body = compute_body(*header, latches, predecessors);
         loop_data.push((*header, latches.clone(), body));

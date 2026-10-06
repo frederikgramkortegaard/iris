@@ -4,7 +4,7 @@ use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::Program;
 use crate::mir::{BlockId, Function, Opcode, Operand, Reg};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Hash, PartialEq, Eq, Clone)]
 enum GVNOperand {
@@ -59,7 +59,7 @@ impl MirGVNPass {
 
     fn walk_domtree(
         &mut self,
-        child_dtree: &HashMap<BlockId, Vec<BlockId>>,
+        child_dtree: &BTreeMap<BlockId, Vec<BlockId>>,
         function: &mut Function,
         blockid: BlockId,
     ) {
@@ -105,7 +105,7 @@ impl MirVisitor for MirGVNPass {
         let (preds, succs) = cfg::compute_cfg(function);
         let doms = cfg::compute_dominators(function, &preds);
         let dtree = cfg::compute_dominator_tree(function, &doms, &succs);
-        let mut child_dtree: HashMap<BlockId, Vec<BlockId>> = HashMap::new();
+        let mut child_dtree: BTreeMap<BlockId, Vec<BlockId>> = BTreeMap::new();
         for (&child, &parent) in &dtree {
             child_dtree.entry(parent).or_default().push(child);
         }

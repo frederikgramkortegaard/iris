@@ -5,14 +5,14 @@ use crate::mir::visitor::MirVisitor;
 use crate::mir::Program;
 use crate::mir::{BasicBlock, BlockId, Function, Instruction, Opcode, Operand, Reg, Terminator};
 use log::debug;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 // Re-export Loop from analysis for convenience
 pub use crate::mir::analysis::loops::Loop;
 
 pub struct MirLoopPass {
     diagnostics: DiagnosticCollector,
-    defs: HashMap<Reg, BlockId>,
+    defs: BTreeMap<Reg, BlockId>,
 }
 
 impl Default for MirLoopPass {
@@ -25,17 +25,17 @@ impl MirLoopPass {
     pub fn new() -> Self {
         MirLoopPass {
             diagnostics: DiagnosticCollector::new(),
-            defs: HashMap::new(),
+            defs: BTreeMap::new(),
         }
     }
 
-    fn find_invariants(&mut self, function: &mut Function, lop: &Loop) -> HashSet<Reg> {
-        let mut invariant: HashSet<Reg> = self
+    fn find_invariants(&mut self, function: &mut Function, lop: &Loop) -> BTreeSet<Reg> {
+        let mut invariant: BTreeSet<Reg> = self
             .defs
             .iter()
             .filter(|(_, y)| !lop.body.contains(y))
             .map(|(reg, _)| *reg)
-            .collect::<HashSet<Reg>>();
+            .collect::<BTreeSet<Reg>>();
 
         let instructions_in_loop: Vec<&Instruction> = lop
             .body
