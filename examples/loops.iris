@@ -1,3 +1,6 @@
+# EXPECTED: licm_nested(45, 2, 3) == 945
+# EXPECTED: licm_nested(30, 2, 3) == 0
+
 
 fn licm_nested(n: f64, a: f64, b: f64) -> f64 {
   var sum = 0

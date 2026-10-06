@@ -1,3 +1,5 @@
+# EXPECTED: main() == 15
+
 fn main() -> f64 {
     var x = 5
     var y = 10

@@ -1,3 +1,5 @@
+# EXPECTED: test() == 10
+
 fn test() -> f64 {
   var x = 1
   var y = 2

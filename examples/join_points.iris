@@ -1,3 +1,14 @@
+# EXPECTED: sign(5) == 1
+# EXPECTED: sign(-5) == -1
+# EXPECTED: sign(0) == 0
+# EXPECTED: abs_v2(-3) == 3
+# EXPECTED: abs_v2(4) == 4
+# EXPECTED: clamp_v2(5, 0, 10) == 5
+# EXPECTED: clamp_v2(-5, 0, 10) == 0
+# EXPECTED: clamp_v2(15, 0, 10) == 10
+# EXPECTED: fib_step(3, 5, 2) == 8
+# EXPECTED: fib_step(3, 5, 0) == 3
+
 fn sign(x: f64) -> f64 {
     var result: f64 = 0
     if (x < 0) {

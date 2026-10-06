@@ -1,3 +1,13 @@
+# EXPECTED: simple_phi(1, 10, 20) == 10
+# EXPECTED: simple_phi(-1, 10, 20) == 20
+# EXPECTED: critical_edge_case(1, 1, 5, 7) == 6
+# EXPECTED: critical_edge_case(1, -1, 5, 7) == 8
+# EXPECTED: critical_edge_case(-1, 1, 5, 7) == 0
+# EXPECTED: loop_with_break(5, 100) == 10
+# EXPECTED: loop_with_break(10, 20) == 21
+# EXPECTED: nested_loop_exit(3, 4) == 12
+# EXPECTED: swap_in_loop(3, 10, 20) == 30
+
 fn simple_phi(x: f64, a: f64, b: f64) -> f64 {
   var result = 0
   if (x > 0) {

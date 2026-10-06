@@ -1,3 +1,11 @@
+# EXPECTED: min(3, 7) == 3
+# EXPECTED: max(3, 7) == 7
+# EXPECTED: abs(-9) == 9
+# EXPECTED: abs(9) == 9
+# EXPECTED: clamp(5, 1, 10) == 5
+# EXPECTED: clamp(-2, 1, 10) == 1
+# EXPECTED: clamp(99, 1, 10) == 10
+
 fn min(a: f64, b: f64) -> f64 {
   if (a < b) {
     return a

@@ -1,3 +1,8 @@
+# EXPECTED: factorial_tail(5, 1) == 120
+# EXPECTED: factorial_tail(1, 7) == 7
+# EXPECTED: sum_tail(10, 0) == 55
+# EXPECTED: sum_tail(0, 5) == 5
+
 fn factorial_tail(n: f64, acc: f64) -> f64 {
   if (n <= 1) {
     return acc

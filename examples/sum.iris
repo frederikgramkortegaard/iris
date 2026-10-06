@@ -1,3 +1,8 @@
+# EXPECTED: sum_range(1, 10) == 55
+# EXPECTED: sum_range(5, 3) == 0
+# EXPECTED: sum_range_iterative(1, 10) == 55
+# EXPECTED: sum_range_iterative(3, 3) == 3
+
 fn sum_range(start: f64, end: f64) -> f64 {
   if (start > end) {
     return 0

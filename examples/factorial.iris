@@ -1,3 +1,10 @@
+# EXPECTED: factorial(5) == 120
+# EXPECTED: factorial(0) == 1
+# EXPECTED: factorial(10) == 3628800
+# EXPECTED: factorial_iterative(5) == 120
+# EXPECTED: factorial_iterative(0) == 1
+# EXPECTED: factorial_iterative(10) == 3628800
+
 fn factorial(n: f64) -> f64 {
   if (n <= 1) {
     return 1

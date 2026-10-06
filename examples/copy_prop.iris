@@ -1,3 +1,6 @@
+# EXPECTED: main(3, 4) == 6
+# EXPECTED: chain(9) == 9
+
 fn main(a: f64, b: f64) -> f64 {
     var x = a
     var y = x

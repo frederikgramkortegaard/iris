@@ -1,3 +1,8 @@
+# EXPECTED: gcd(16, 8) == 8
+# EXPECTED: gcd(12, 0) == 12
+# EXPECTED: gcd_iterative(16, 8) == 8
+# EXPECTED: gcd_iterative(12, 0) == 12
+
 fn gcd(a: f64, b: f64) -> f64 {
   if (b == 0) {
     return a

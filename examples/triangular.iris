@@ -1,3 +1,7 @@
+# EXPECTED: triangular(10) == 55
+# EXPECTED: triangular(0) == 0
+# EXPECTED: triangular(1) == 1
+
 fn triangular(n: f64) -> f64 {
   var s = 0
   var i = 1

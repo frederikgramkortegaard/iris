@@ -1,3 +1,10 @@
+# EXPECTED: clamp_to_zero(-5) == 0
+# EXPECTED: clamp_to_zero(5) == 5
+# EXPECTED: abs_param(-3) == 3
+# EXPECTED: abs_param(3) == 3
+# EXPECTED: double_or_zero(7, 0) == 0
+# EXPECTED: double_or_zero(7, 1) == 14
+
 fn clamp_to_zero(x: f64) -> f64 {
     if (x < 0) {
         x = 0
