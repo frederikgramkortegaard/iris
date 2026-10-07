@@ -3,7 +3,7 @@
 A compiler for a custom language targeting WebAssembly, built from scratch in Rust with no external dependencies. It implements a full SSA-based optimization pipeline and uses [Ramsey's (2022)](https://dl.acm.org/doi/10.1145/3547621) algorithm to recover structured control flow from reducible CFGs, producing WebAssembly-compatible constructs without heuristic restructuring.
 
 - SSA construction via iterated dominance frontiers and dominator tree renaming, with correct SSA deconstruction via parallel copies
-- Optimization passes: constant propagation, GVN, LICM, copy propagation, DCE, tail call optimization, dead block elimination, register compaction, peephole optimization
+- Optimization passes: constant propagation, CSE, LICM, copy propagation, DCE, tail call optimization, dead block elimination, register compaction, peephole optimization
 - SCEV (Scalar Evolution) / Induction Variable Analysis, Trip Count Computation
 - [Ramsey (2022)](https://dl.acm.org/doi/10.1145/3547621) structure recovery for CFG -> structured WebAssembly
 - Visitor pattern for traversal and transformation of both HIR and MIR
@@ -170,7 +170,7 @@ All passes operate on the MIR in SSA form and run to a fixed point in an iterati
 
 **Constant Propagation** - tracks constant values through copy instructions in the SSA def-use graph, replacing register uses with their constant values where known.
 
-**GVN** (Global Value Numbering) - assigns value numbers across basic block boundaries. Instructions computing the same value get replaced with the dominating definition.
+**CSE** (Common Subexpression Elimination) - dominator-scoped: an instruction recomputing an expression already computed in a dominating block gets replaced with a copy of the earlier result. Keyed on register names, so not full value numbering. Calls are never merged since they may have side effects.
 
 **LICM** (Loop Invariant Code Motion) - identifies instructions whose operands are all loop-external and hoists them to the loop preheader, using natural loop detection via back edges identified from the dominator tree.
 
@@ -213,9 +213,31 @@ cargo run -- examples/sum.iris -o sum.wat
 wasmtime run --invoke sum_range sum.wat 1.0 10.0
 # => 55
 
-wasmtime run --invoke factorial examples/factorial.wat 5.0
+cargo run -- examples/factorial.iris -o factorial.wat
+wasmtime run --invoke factorial factorial.wat 5.0
 # => 120
 ```
+
+## Testing
+
+```bash
+cargo test
+```
+
+Unit tests cover the lexer, parser and typechecker. The end-to-end suite
+(`tests/e2e.sh`) compiles every file in `examples/`, runs the resulting wasm
+with wasmtime and checks each exported function against `# EXPECTED:`
+annotations in the source itself:
+
+```
+# EXPECTED: factorial(5) == 120
+# EXPECTED: simple() traps
+```
+
+Every example is also compiled twice and the outputs diffed, so the compiler
+stays deterministic. The suite runs as part of `cargo test` when wasmtime is
+on PATH, and in CI, where the generated `.wat` for all examples is uploaded
+as an artifact on every run.
 
 ## Project structure
 
@@ -243,7 +265,7 @@ src/
 |       |-- ssa.rs                   # Phi insertion, variable renaming
 |       |-- deconstruct.rs           # SSA deconstruction
 |       |-- const_prop.rs            # Constant propagation
-|       |-- gvn.rs                   # Global value numbering
+|       |-- cse.rs                   # Common subexpression elimination
 |       |-- copy_prop.rs             # Copy propagation
 |       |-- dce.rs                   # Dead code elimination
 |       |-- dbe.rs                   # Dead block elimination
