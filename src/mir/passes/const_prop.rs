@@ -67,11 +67,14 @@ impl MirConstPropPass {
             Opcode::Ne => Some(Operand::ImmBool(lhs != rhs)),
             Opcode::Le => Some(Operand::ImmBool(lhs <= rhs)),
             Opcode::Lt => Some(Operand::ImmBool(lhs < rhs)),
+            Opcode::Ge => Some(Operand::ImmBool(lhs >= rhs)),
+            Opcode::Gt => Some(Operand::ImmBool(lhs > rhs)),
 
             Opcode::Add => Some(wrap(lhs + rhs)),
             Opcode::Sub => Some(wrap(lhs - rhs)),
             Opcode::Div => Some(wrap(lhs / rhs)),
             Opcode::Mul => Some(wrap(lhs * rhs)),
+            Opcode::Mod => Some(wrap(lhs % rhs)),
             _ => None,
         }
     }
