@@ -7,52 +7,55 @@ use crate::mir::{BlockId, Function, Opcode, Operand, Reg};
 use std::collections::{BTreeMap, HashMap};
 
 #[derive(Hash, PartialEq, Eq, Clone)]
-enum GVNOperand {
+enum CSEOperand {
     Reg(Reg),
     ImmI64(i64),
     ImmF64Bits(u64), // store as bits for hashing
     ImmBool(bool),
     Label(String),
-    Pair(BlockId, Box<GVNOperand>), // Used for Phi nodes
+    Pair(BlockId, Box<CSEOperand>), // Used for Phi nodes
 }
 #[derive(Hash, PartialEq, Eq, Clone)]
-struct GVNKey {
+struct CSEKey {
     op: Opcode,
-    args: Vec<GVNOperand>,
+    args: Vec<CSEOperand>,
 }
-pub type GVNValue = Reg;
+pub type CSEValue = Reg;
 
-impl From<&Operand> for GVNOperand {
+impl From<&Operand> for CSEOperand {
     fn from(op: &Operand) -> Self {
         match op {
-            Operand::Reg(r) => GVNOperand::Reg(*r),
-            Operand::ImmI64(i) => GVNOperand::ImmI64(*i),
-            Operand::ImmF64(f) => GVNOperand::ImmF64Bits(f.to_bits()),
-            Operand::ImmBool(b) => GVNOperand::ImmBool(*b),
-            Operand::Label(s) => GVNOperand::Label(s.clone()),
+            Operand::Reg(r) => CSEOperand::Reg(*r),
+            Operand::ImmI64(i) => CSEOperand::ImmI64(*i),
+            Operand::ImmF64(f) => CSEOperand::ImmF64Bits(f.to_bits()),
+            Operand::ImmBool(b) => CSEOperand::ImmBool(*b),
+            Operand::Label(s) => CSEOperand::Label(s.clone()),
             Operand::Pair(block, inner) => {
-                GVNOperand::Pair(*block, Box::new(GVNOperand::from(inner.as_ref())))
+                CSEOperand::Pair(*block, Box::new(CSEOperand::from(inner.as_ref())))
             }
         }
     }
 }
 
-/// GVN (Global Value Numbering)
-pub struct MirGVNPass {
+/// Common Subexpression Elimination, scoped by the dominator tree.
+/// Note this is not real value numbering: keys are register names, so
+/// a + b and a2 + b don't merge even if a2 is a copy of a, and there is
+/// no commutative canonicalization. Used to be called GVN which oversold it.
+pub struct MirCSEPass {
     diagnostics: DiagnosticCollector,
-    valuemap: HashMap<GVNKey, GVNValue>,
+    valuemap: HashMap<CSEKey, CSEValue>,
     changed: bool,
 }
 
-impl Default for MirGVNPass {
+impl Default for MirCSEPass {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl MirGVNPass {
+impl MirCSEPass {
     pub fn new() -> Self {
-        MirGVNPass {
+        MirCSEPass {
             diagnostics: DiagnosticCollector::new(),
             valuemap: HashMap::new(),
             changed: false,
@@ -70,13 +73,19 @@ impl MirGVNPass {
         function: &mut Function,
         blockid: BlockId,
     ) {
-        let mut added: Vec<GVNKey> = vec![];
+        let mut added: Vec<CSEKey> = vec![];
         let block = function.arena.get_mut(blockid);
 
         for instruction in &mut block.instructions {
-            let key = GVNKey {
+            // Calls are impure, merging two identical calls would change
+            // how often they run. DCE already treats them as side-effecting.
+            if instruction.op == Opcode::Call {
+                continue;
+            }
+
+            let key = CSEKey {
                 op: instruction.op.clone(),
-                args: instruction.args.iter().map(GVNOperand::from).collect(),
+                args: instruction.args.iter().map(CSEOperand::from).collect(),
             };
 
             if let Some(r) = self.valuemap.get(&key) {
@@ -97,7 +106,7 @@ impl MirGVNPass {
     }
 }
 
-impl MirVisitor for MirGVNPass {
+impl MirVisitor for MirCSEPass {
     type Output = ();
 
     fn diagnostics(&self) -> &DiagnosticCollector {
@@ -120,7 +129,7 @@ impl MirVisitor for MirGVNPass {
         self.walk_domtree(&child_dtree, function, function.entry);
     }
 }
-impl MirPass for MirGVNPass {
+impl MirPass for MirCSEPass {
     fn run(&mut self, program: &mut Program) {
         self.visit_program(program);
     }

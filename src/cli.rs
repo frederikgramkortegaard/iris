@@ -11,7 +11,7 @@ use crate::mir::passes::copy_prop::MirCopyPropPass;
 use crate::mir::passes::dbe::MirDeadBlockEliminationPass;
 use crate::mir::passes::dce::MirDCEPass;
 use crate::mir::passes::deconstruct::MirSSADeconstructionPass;
-use crate::mir::passes::gvn::MirGVNPass;
+use crate::mir::passes::cse::MirCSEPass;
 use crate::mir::passes::loops::MirLoopPass;
 use crate::mir::passes::print::MirPrintingPass;
 use crate::mir::passes::reg_compact::RegCompactPass;
@@ -117,21 +117,21 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         let mut const_prop = MirConstPropPass::new();
         let mut dbe = MirDeadBlockEliminationPass::new();
         let mut loops = MirLoopPass::new();
-        let mut gvn = MirGVNPass::new();
+        let mut cse = MirCSEPass::new();
         let mut copy_prop = MirCopyPropPass::new();
         let mut dce = MirDCEPass::new();
 
         mir.run_pass(&mut const_prop)?
             .run_pass(&mut dbe)?
             .run_pass(&mut loops)?
-            .run_pass(&mut gvn)?
+            .run_pass(&mut cse)?
             .run_pass(&mut copy_prop)?
             .run_pass(&mut dce)?;
 
         let changed = const_prop.changed()
             || dbe.changed()
             || loops.changed()
-            || gvn.changed()
+            || cse.changed()
             || copy_prop.changed()
             || dce.changed();
 

@@ -3,7 +3,7 @@ pub mod copy_prop;
 pub mod dbe;
 pub mod dce;
 pub mod deconstruct;
-pub mod gvn;
+pub mod cse;
 pub mod loops;
 pub mod print;
 pub mod reg_compact;
