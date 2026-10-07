@@ -145,6 +145,12 @@ impl SimplifyPass {
             }
 
             // Check for variable identities (x op x)
+            //
+            // Careful, most of these are wrong for NaN: NaN - NaN is NaN
+            // (not 0), NaN == NaN is false, NaN != NaN is true, NaN <= NaN
+            // is false. Only x < x and x > x fold soundly (false for every
+            // value, NaN included). The unsound ones used to live here, if
+            // they come back they need a fast-math flag.
             if let (Expression::Variable { name: a, .. }, Expression::Variable { name: b, .. }) =
                 (left.as_ref(), right.as_ref())
             {
@@ -152,45 +158,6 @@ impl SimplifyPass {
                     let expr_span = *span;
                     let expr_typ = saved_typ.clone();
                     match op.tag {
-                        TokenType::Minus => {
-                            self.diagnostics.info(format!(
-                                "Algebraic simplification: {} - {} -> 0 at line {}, column {}",
-                                a, a, op.row, op.column
-                            ));
-                            *expression = Expression::Number {
-                                value: 0.0,
-                                span: expr_span,
-                                typ: expr_typ,
-                            };
-                            self.folded_nodes_count += 1;
-                            return;
-                        }
-                        TokenType::Equal => {
-                            self.diagnostics.info(format!(
-                                "Algebraic simplification: {} == {} -> true at line {}, column {}",
-                                a, a, op.row, op.column
-                            ));
-                            *expression = Expression::Boolean {
-                                value: true,
-                                span: expr_span,
-                                typ: expr_typ,
-                            };
-                            self.folded_nodes_count += 1;
-                            return;
-                        }
-                        TokenType::NotEqual => {
-                            self.diagnostics.info(format!(
-                                "Algebraic simplification: {} != {} -> false at line {}, column {}",
-                                a, a, op.row, op.column
-                            ));
-                            *expression = Expression::Boolean {
-                                value: false,
-                                span: expr_span,
-                                typ: expr_typ,
-                            };
-                            self.folded_nodes_count += 1;
-                            return;
-                        }
                         TokenType::Less | TokenType::Greater => {
                             self.diagnostics.info(format!(
                                 "Algebraic simplification: {} {} {} -> false at line {}, column {}",
@@ -198,19 +165,6 @@ impl SimplifyPass {
                             ));
                             *expression = Expression::Boolean {
                                 value: false,
-                                span: expr_span,
-                                typ: expr_typ,
-                            };
-                            self.folded_nodes_count += 1;
-                            return;
-                        }
-                        TokenType::LessEqual | TokenType::GreaterEqual => {
-                            self.diagnostics.info(format!(
-                                "Algebraic simplification: {} {} {} -> true at line {}, column {}",
-                                a, op.lexeme, a, op.row, op.column
-                            ));
-                            *expression = Expression::Boolean {
-                                value: true,
                                 span: expr_span,
                                 typ: expr_typ,
                             };
@@ -254,19 +208,7 @@ impl SimplifyPass {
                     *expression = (**left).clone();
                     self.folded_nodes_count += 1;
                 }
-                // x * 0 -> 0
-                (_, TokenType::Star, Expression::Number { value: n, .. }) if *n == 0.0 => {
-                    self.diagnostics.info(format!(
-                        "Algebraic simplification: expr * 0 -> 0 at line {}, column {}",
-                        op.row, op.column
-                    ));
-                    *expression = Expression::Number {
-                        value: 0.0,
-                        span: expr_span,
-                        typ: expr_typ,
-                    };
-                    self.folded_nodes_count += 1;
-                }
+                // no x * 0 -> 0 here, NaN * 0 and inf * 0 are both NaN
                 // x / 1 -> x
                 (_, TokenType::Slash, Expression::Number { value: n, .. }) if *n == 1.0 => {
                     self.diagnostics.info(format!(
