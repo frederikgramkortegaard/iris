@@ -26,6 +26,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --lib
 
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: bytecodealliance/actions/wasmtime/setup@v1
+      - run: cargo test --test e2e
+
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
