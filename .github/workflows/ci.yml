@@ -34,6 +34,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: bytecodealliance/actions/wasmtime/setup@v1
       - run: cargo test --test e2e
+      - name: Generate wat for all examples
+        run: |
+          mkdir -p wat
+          for f in examples/*.iris; do
+            ./target/release/iris "$f" -o "wat/$(basename "${f%.iris}").wat"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: example-wat
+          path: wat/
 
   clippy:
     name: Clippy
