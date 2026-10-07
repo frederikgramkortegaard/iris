@@ -50,6 +50,11 @@ impl MirLoopPass {
             .flat_map(|bid| function.block(*bid).instructions.iter())
             .collect();
 
+        // NOTE: we hoist without checking that the instruction runs on
+        // every iteration (no dominates-all-exits test). Only sound because
+        // all our ops are non-trapping f64 arithmetic and calls are
+        // filtered out below. If the IR ever grows a trapping op this
+        // needs a real check.
         let mut converged = false;
         while !converged {
             converged = true;
@@ -124,8 +129,8 @@ impl MirLoopPass {
                 .collect();
 
             // Redirect outside predecessors to preheader
-            for outside in outside_preds {
-                let block = function.block_mut(outside);
+            for outside in &outside_preds {
+                let block = function.block_mut(*outside);
                 match &mut block.terminator {
                     Terminator::Br { target } if *target == lop.header => {
                         *target = preheader;
@@ -141,6 +146,22 @@ impl MirLoopPass {
                         }
                     }
                     _ => {}
+                }
+            }
+
+            // The header's phi entries still name the old outside preds,
+            // but those edges go through the preheader now. Without the
+            // rename, phi elimination puts the initial value copies in the
+            // old pred where they also run on paths that never enter the
+            // loop. Structured input gives a header exactly one outside
+            // pred, so no duplicate entries.
+            for phi in &mut function.block_mut(lop.header).phi_nodes {
+                for arg in &mut phi.args {
+                    if let Operand::Pair(b, _) = arg {
+                        if outside_preds.contains(b) {
+                            *b = preheader;
+                        }
+                    }
                 }
             }
 
