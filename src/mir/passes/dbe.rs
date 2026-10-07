@@ -1,8 +1,8 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
-use crate::mir::{BlockId, Function, Operand, Program, Terminator};
-use std::collections::HashSet;
+use crate::mir::{BlockId, Function, Instruction, Opcode, Operand, Program, Terminator};
+use std::collections::{BTreeSet, HashSet};
 
 pub struct MirDeadBlockEliminationPass {
     diagnostics: DiagnosticCollector,
@@ -97,16 +97,48 @@ impl MirVisitor for MirDeadBlockEliminationPass {
         // Then eliminate unreachable blocks
         let reachable = reachable_blocks(function);
 
-        let dead: Vec<BlockId> = function
+        let dead: BTreeSet<BlockId> = function
             .arena
             .iter()
             .map(|(id, _)| id)
             .filter(|id| !reachable.contains(id))
             .collect();
 
-        for id in dead {
+        if dead.is_empty() {
+            return;
+        }
+        self.changed = true;
+
+        for &id in &dead {
             function.arena.remove(id);
-            self.changed = true;
+        }
+
+        // Phis in surviving blocks can still name a removed predecessor,
+        // and phi elimination would then try to insert copies into a block
+        // that no longer exists. Drop those entries. A phi left with one
+        // entry is not a join anymore, it's just a copy.
+        for (_, block) in function.arena.iter_mut() {
+            let mut demoted: Vec<Instruction> = Vec::new();
+            block.phi_nodes.retain_mut(|phi| {
+                phi.args
+                    .retain(|arg| !matches!(arg, Operand::Pair(b, _) if dead.contains(b)));
+                match phi.args.as_slice() {
+                    [] => false,
+                    [Operand::Pair(_, value)] => {
+                        demoted.push(Instruction {
+                            dest: phi.dest,
+                            op: Opcode::Copy,
+                            typ: phi.typ,
+                            args: vec![(**value).clone()],
+                        });
+                        false
+                    }
+                    _ => true,
+                }
+            });
+            for (i, inst) in demoted.into_iter().enumerate() {
+                block.instructions.insert(i, inst);
+            }
         }
     }
 }
