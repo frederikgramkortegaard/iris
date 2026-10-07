@@ -207,7 +207,11 @@ fn lower_node(node: &StructuredNode, function: &Function) -> Vec<WatInstruction>
             wat
         }
 
-        StructuredNode::Loop { header, body } => {
+        StructuredNode::Loop {
+            header,
+            body_entries,
+            body,
+        } => {
             let block = function.arena.get(*header);
             let mut header_wat = Vec::new();
 
@@ -216,12 +220,16 @@ fn lower_node(node: &StructuredNode, function: &Function) -> Vec<WatInstruction>
                 header_wat.extend(lower_instruction(inst, function));
             }
 
-            // Header ends with BrIf { cond, then_bb: body, else_bb: exit }
-            // cond=true means continue looping, so we invert: exit when NOT true
+            // One side of the header's BrIf continues the loop, the other
+            // exits. Don't assume which is which, check if then_bb is in
+            // the loop body (tail call loops have it the other way around).
             match &block.terminator {
-                Terminator::BrIf { cond, .. } => {
+                Terminator::BrIf { cond, then_bb, .. } => {
                     header_wat.push(lower_operand(cond));
-                    header_wat.push(WatInstruction::I32Eqz);
+                    if body_entries.contains(then_bb) {
+                        // cond=true continues the loop: exit when NOT true
+                        header_wat.push(WatInstruction::I32Eqz);
+                    }
                     header_wat.push(WatInstruction::BrIf(1));
                 }
                 Terminator::Br { .. } => {
@@ -278,11 +286,14 @@ fn lower_function(function: &Function) -> WatFunction {
         .map(|(reg, typ)| (format!("r{}", reg), mir_type_to_wat(*typ)))
         .collect();
 
-    // Compute CFG and dominator tree, then run Ramsey structuring
+    // Compute CFG and dominator tree, then run Ramsey structuring.
+    // Start at the virtual entry, not the real entry. After phi elimination
+    // the virtual entry holds the copies that set up loop variables from
+    // the parameters, dropping it meant those never ran.
     let (preds, succs) = compute_cfg(function);
     let dom_sets = compute_dominators(function, &preds);
     let dom_tree = compute_dominator_tree(function, &dom_sets, &succs);
-    let structure = ramsey_structuring(function.entry, &dom_tree, &succs, &preds);
+    let structure = ramsey_structuring(function.virtual_entry, &dom_tree, &succs, &preds);
 
     // Lower the structured tree into WAT instructions
     let mut body = lower_node(&structure, function);

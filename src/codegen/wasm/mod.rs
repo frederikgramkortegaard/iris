@@ -16,6 +16,9 @@ pub enum StructuredNode {
     },
     Loop {
         header: BlockId,
+        /// Successors of the header that are inside the loop. Needed to tell
+        /// whether the header's BrIf continues the loop on true or on false.
+        body_entries: Vec<BlockId>,
         body: Box<StructuredNode>,
     },
     Block(BlockId), // simple straight-line block

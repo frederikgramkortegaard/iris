@@ -68,6 +68,7 @@ pub fn ramsey_structuring(
 
         let loop_node = StructuredNode::Loop {
             header: block_id,
+            body_entries: body_succs,
             body: Box::new(body),
         };
 
