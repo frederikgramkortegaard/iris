@@ -1,0 +1,7 @@
+# call-heavy: naive recursion, millions of calls
+fn fib(n: f64) -> f64 {
+  if (n <= 1) {
+    return n
+  }
+  return fib(n - 1) + fib(n - 2)
+}

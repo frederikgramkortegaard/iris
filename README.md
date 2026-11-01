@@ -1,5 +1,7 @@
 # Iris
 
+![CI](https://github.com/frederikgramkortegaard/iris/actions/workflows/ci.yml/badge.svg)
+
 A compiler for a custom language targeting WebAssembly, built from scratch in Rust with no external dependencies. It implements a full SSA-based optimization pipeline and uses [Ramsey's (2022)](https://dl.acm.org/doi/10.1145/3547621) algorithm to recover structured control flow from reducible CFGs, producing WebAssembly-compatible constructs without heuristic restructuring.
 
 - SSA construction via iterated dominance frontiers and dominator tree renaming, with correct SSA deconstruction via parallel copies
@@ -188,6 +190,55 @@ All passes operate on the MIR in SSA form and run to a fixed point in an iterati
 
 SSA is deconstructed back to conventional form using parallel copies to correctly handle lost-copy and swap cases at phi node boundaries.
 
+## Optimization in numbers
+
+Wasm instructions emitted per example, with and without the optimization
+pipeline (`--no-opt`):
+
+| example         | no-opt | optimized |
+|-----------------|-------:|----------:|
+| const_fold      |     17 |         3 |
+| dce             |     27 |         3 |
+| copy_prop       |     24 |         9 |
+| gvn             |     60 |        31 |
+| join_points     |    120 |        84 |
+| triangular      |     39 |        30 |
+| ssa_deconstruct |    257 |       193 |
+| tailcall        |     50 |        58 |
+
+tailcall grows because tail call optimization trades a few parameter copies
+for eliminating the calls entirely, which shows up at runtime instead (see
+below).
+
+## Benchmarks
+
+`bench/run.sh` times compute-heavy programs (`bench/*.iris`) compiled with
+and without the optimization pipeline, via hyperfine (2 warmups, 10 runs,
+outlier detection). Each one runs under two engine configs: wasmtime
+default, and `wasmtime -O opt-level=0` which disables cranelift's own
+optimizer -- that second config isolates what iris's optimizer contributes,
+instead of letting the JIT redo the work and hide it. Workloads are sized
+to ~600ms so process startup (~15ms) is noise. Both variants are checked
+for identical results before anything is timed.
+
+| benchmark                  | engine        | no-opt   | opt      |
+|----------------------------|---------------|---------:|---------:|
+| fib(40), call-heavy        | jit           |   780 ms |   781 ms |
+| fib(40)                    | jit opt off   |   781 ms |   779 ms |
+| mandel(1200^2), float-heavy| jit           |   578 ms |   577 ms |
+| mandel(1200^2)             | jit opt off   |   587 ms |   586 ms |
+| nested(3e8 iters), licm    | jit           |   574 ms |   574 ms |
+| nested(3e8 iters)          | jit opt off   |   599 ms |   583 ms |
+| sum_tail(5e6), deep recursion | jit        |  trap: stack exhausted | 12.5e12 (correct) |
+
+Honest readout: with cranelift's optimizer on, iris's mid-end makes no
+measurable runtime difference -- the JIT re-derives everything a second
+time. With it off, LICM shows up as a real 2.8% on its target workload
+(599.4 ms -> 582.9 ms, sigma ~1-2.6 ms). The wins that survive a modern
+JIT are code size (table above) and tail call optimization, which is not a
+speedup but a capability: recursion depth goes from stack-bound to
+unbounded, so `sum_tail(5000000)` traps without it and just runs with it.
+
 ## Building
 
 ```bash
@@ -202,6 +253,9 @@ cargo run -- examples/triangular.iris
 
 # Compile to WAT file
 cargo run -- examples/triangular.iris -o output.wat
+
+# Compile with optimizations disabled (for comparing output)
+cargo run -- examples/triangular.iris --no-opt
 ```
 
 ### Running with wasmtime

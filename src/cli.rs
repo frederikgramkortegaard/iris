@@ -31,6 +31,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     // Parse --verbose early to configure logger
     let verbose = args.iter().any(|a| a == "--verbose");
+    // --no-opt skips the optimization passes, mostly useful for comparing output
+    let no_opt = args.iter().any(|a| a == "--no-opt");
     env_logger::Builder::new()
         .filter_level(if verbose {
             log::LevelFilter::Debug
@@ -43,7 +45,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.len() < 2 {
         eprintln!(
-            "Usage: {} <input-file> [-o <output-file>] [-t <target>] [--verbose]",
+            "Usage: {} <input-file> [-o <output-file>] [-t <target>] [--verbose] [--no-opt]",
             args[0]
         );
         std::process::exit(1);
@@ -108,12 +110,17 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     print_diagnostics(lowering_pass.diagnostics())?;
 
     // Run MIR passes
-    mir.run_pass(&mut MirTailCallPass::new())?
-        .run_pass(&mut MirSSAPass::new())?;
+    if !no_opt {
+        mir.run_pass(&mut MirTailCallPass::new())?;
+    }
+    mir.run_pass(&mut MirSSAPass::new())?;
 
     // Optimize in SSA form until nothing changes anymore
     const MAX_OPT_ITERATIONS: usize = 20;
     for i in 1.. {
+        if no_opt {
+            break;
+        }
         let mut const_prop = MirConstPropPass::new();
         let mut dbe = MirDeadBlockEliminationPass::new();
         let mut loops = MirLoopPass::new();
@@ -148,7 +155,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    mir.run_pass(&mut MirSCEVPass::new())?;
+    if !no_opt {
+        mir.run_pass(&mut MirSCEVPass::new())?;
+    }
 
     if verbose {
         mir.run_pass(&mut MirPrintingPass::with_message("Optimized SSA"))?;
@@ -165,7 +174,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let output = match target.as_str() {
         "wasm" => {
             let mut wat_module = lower::lower(&mir);
-            peephole::peephole(&mut wat_module);
+            if !no_opt {
+                peephole::peephole(&mut wat_module);
+            }
             wat_module.emit()
         }
         _ => return Err(format!("Unknown target: {}", target).into()),
