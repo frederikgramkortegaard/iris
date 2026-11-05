@@ -33,8 +33,6 @@ impl MirCopyPropPass {
 }
 
 impl MirVisitor for MirCopyPropPass {
-    type Output = ();
-
     fn diagnostics(&self) -> &DiagnosticCollector {
         &self.diagnostics
     }
@@ -43,7 +41,7 @@ impl MirVisitor for MirCopyPropPass {
         &mut self.diagnostics
     }
 
-    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
+    fn visit_function(&mut self, function: &mut Function) {
         self.walk_function(function);
 
         // Before we can do proper copy-prop for phi nodes, we need to fully fill out the copy map.
@@ -70,7 +68,7 @@ impl MirVisitor for MirCopyPropPass {
         self.copy_map.clear();
     }
 
-    fn visit_instruction(&mut self, instruction: &mut Instruction) -> Self::Output {
+    fn visit_instruction(&mut self, instruction: &mut Instruction) {
         for arg in &mut instruction.args {
             if let Operand::Reg(src) = arg {
                 if let Some(&r) = self.copy_map.get(src) {
@@ -88,7 +86,7 @@ impl MirVisitor for MirCopyPropPass {
         }
     }
 
-    fn visit_terminator(&mut self, term: &mut Terminator) -> Self::Output {
+    fn visit_terminator(&mut self, term: &mut Terminator) {
         match term {
             Terminator::Ret {
                 value: Some(Operand::Reg(r)),

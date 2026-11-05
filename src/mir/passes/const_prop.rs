@@ -81,8 +81,6 @@ impl MirConstPropPass {
 }
 
 impl MirVisitor for MirConstPropPass {
-    type Output = ();
-
     fn diagnostics(&self) -> &DiagnosticCollector {
         &self.diagnostics
     }
@@ -91,7 +89,7 @@ impl MirVisitor for MirConstPropPass {
         &mut self.diagnostics
     }
 
-    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
+    fn visit_function(&mut self, function: &mut Function) {
         self.walk_function(function);
         self.constant_map.clear();
     }
@@ -112,7 +110,7 @@ impl MirVisitor for MirConstPropPass {
     //      otherwise we can return the newly constructed Operand which will
     //      replace the entire operand list in the instruction
     // }
-    fn visit_instruction(&mut self, instruction: &mut Instruction) -> Self::Output {
+    fn visit_instruction(&mut self, instruction: &mut Instruction) {
         if instruction.args.iter().all(|a| a.is_constant()) {
             if let Some(result) = self.fold(&instruction.op, &instruction.args) {
                 instruction.op = Opcode::Copy;
@@ -161,7 +159,7 @@ impl MirVisitor for MirConstPropPass {
         }
     }
 
-    fn visit_terminator(&mut self, terminator: &mut crate::mir::Terminator) -> Self::Output {
+    fn visit_terminator(&mut self, terminator: &mut crate::mir::Terminator) {
         match terminator {
             crate::mir::Terminator::BrIf { cond, .. } => {
                 if let Operand::Reg(r) = cond {

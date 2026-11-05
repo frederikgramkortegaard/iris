@@ -58,20 +58,11 @@ impl MirSSADeconstructionPass {
                 note: Some("edge_split".to_string()),
             });
 
-            match &mut function.arena.get_mut(pred).terminator {
-                Terminator::BrIf {
-                    then_bb, else_bb, ..
-                } => {
-                    if *then_bb == succ {
-                        *then_bb = split;
-                    }
-                    if *else_bb == succ {
-                        *else_bb = split;
-                    }
-                }
-                Terminator::Br { target } if *target == succ => *target = split,
-                _ => {}
-            }
+            function
+                .arena
+                .get_mut(pred)
+                .terminator
+                .retarget(succ, split);
 
             // phi entries naming the old pred now come in via the split block
             for phi in &mut function.arena.get_mut(succ).phi_nodes {
@@ -255,8 +246,6 @@ pub fn sequentialize_parallel_copies(
 }
 
 impl MirVisitor for MirSSADeconstructionPass {
-    type Output = ();
-
     fn diagnostics(&self) -> &DiagnosticCollector {
         &self.diagnostics
     }

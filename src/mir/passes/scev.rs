@@ -129,8 +129,6 @@ impl MirSCEVPass {
 }
 
 impl MirVisitor for MirSCEVPass {
-    type Output = ();
-
     fn diagnostics(&self) -> &DiagnosticCollector {
         &self.diagnostics
     }
@@ -139,7 +137,7 @@ impl MirVisitor for MirSCEVPass {
         &mut self.diagnostics
     }
 
-    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
+    fn visit_function(&mut self, function: &mut Function) {
         let Some(mut loops) = function.loops.take() else {
             return;
         };

@@ -38,33 +38,16 @@ fn reachable_blocks(function: &Function) -> HashSet<BlockId> {
         if !visited.insert(block_id) {
             continue;
         }
+        // Constant BrIfs are folded to Br before this runs, so plain
+        // successors are exact here
         let block = function.arena.get(block_id);
-        match &block.terminator {
-            Terminator::Br { target } => {
-                worklist.push(*target);
-            }
-            Terminator::BrIf {
-                cond,
-                then_bb,
-                else_bb,
-            } => match cond {
-                Operand::ImmBool(true) => worklist.push(*then_bb),
-                Operand::ImmBool(false) => worklist.push(*else_bb),
-                _ => {
-                    worklist.push(*then_bb);
-                    worklist.push(*else_bb);
-                }
-            },
-            Terminator::Ret { .. } | Terminator::Unreachable => {}
-        }
+        worklist.extend(block.terminator.successors());
     }
 
     visited
 }
 
 impl MirVisitor for MirDeadBlockEliminationPass {
-    type Output = ();
-
     fn diagnostics(&self) -> &DiagnosticCollector {
         &self.diagnostics
     }

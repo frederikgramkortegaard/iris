@@ -1,6 +1,6 @@
 use crate::diagnostics::DiagnosticCollector;
 use crate::mir::passes::MirPass;
-use crate::mir::{Function, Operand, Program, Reg, Terminator};
+use crate::mir::{Function, Program, Reg};
 use std::collections::{BTreeSet, HashMap};
 
 pub struct RegCompactPass {
@@ -31,13 +31,15 @@ impl RegCompactPass {
             for inst in &block.instructions {
                 used.insert(inst.dest);
                 for arg in &inst.args {
-                    Self::collect_operand_regs(arg, &mut used);
+                    arg.for_each_reg(&mut |r| {
+                        used.insert(r);
+                    });
                 }
             }
-            match &block.terminator {
-                Terminator::Ret { value: Some(op) } => Self::collect_operand_regs(op, &mut used),
-                Terminator::BrIf { cond, .. } => Self::collect_operand_regs(cond, &mut used),
-                _ => {}
+            for op in block.terminator.operands() {
+                op.for_each_reg(&mut |r| {
+                    used.insert(r);
+                });
             }
         }
 
@@ -58,41 +60,21 @@ impl RegCompactPass {
             for inst in &mut block.instructions {
                 inst.dest = mapping[&inst.dest];
                 for arg in &mut inst.args {
-                    Self::rewrite_operand(arg, &mapping);
+                    arg.map_regs(&mut |r| mapping[&r]);
                 }
             }
-            match &mut block.terminator {
-                Terminator::Ret { value: Some(op) } => Self::rewrite_operand(op, &mapping),
-                Terminator::BrIf { cond, .. } => Self::rewrite_operand(cond, &mapping),
-                _ => {}
+            for op in block.terminator.operands_mut() {
+                op.map_regs(&mut |r| mapping[&r]);
             }
         }
 
         function.next_free_reg = used.len();
     }
-
-    fn collect_operand_regs(op: &Operand, used: &mut BTreeSet<Reg>) {
-        match op {
-            Operand::Reg(r) => {
-                used.insert(*r);
-            }
-            Operand::Pair(_, inner) => Self::collect_operand_regs(inner, used),
-            _ => {}
-        }
-    }
-
-    fn rewrite_operand(op: &mut Operand, mapping: &HashMap<Reg, Reg>) {
-        match op {
-            Operand::Reg(r) => *r = mapping[r],
-            Operand::Pair(_, inner) => Self::rewrite_operand(inner, mapping),
-            _ => {}
-        }
-    }
 }
 
 impl MirPass for RegCompactPass {
     fn run(&mut self, program: &mut Program) {
-        for function in &mut program.functions {
+        for (_, function) in program.functions.iter_mut() {
             self.compact_function(function);
         }
     }

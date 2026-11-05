@@ -130,23 +130,10 @@ impl MirLoopPass {
 
             // Redirect outside predecessors to preheader
             for outside in &outside_preds {
-                let block = function.block_mut(*outside);
-                match &mut block.terminator {
-                    Terminator::Br { target } if *target == lop.header => {
-                        *target = preheader;
-                    }
-                    Terminator::BrIf {
-                        then_bb, else_bb, ..
-                    } => {
-                        if *then_bb == lop.header {
-                            *then_bb = preheader;
-                        }
-                        if *else_bb == lop.header {
-                            *else_bb = preheader;
-                        }
-                    }
-                    _ => {}
-                }
+                function
+                    .block_mut(*outside)
+                    .terminator
+                    .retarget(lop.header, preheader);
             }
 
             // The header's phi entries still name the old outside preds,
@@ -186,8 +173,6 @@ impl MirLoopPass {
 }
 
 impl MirVisitor for MirLoopPass {
-    type Output = ();
-
     fn diagnostics(&self) -> &DiagnosticCollector {
         &self.diagnostics
     }
@@ -196,7 +181,7 @@ impl MirVisitor for MirLoopPass {
         &mut self.diagnostics
     }
 
-    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
+    fn visit_function(&mut self, function: &mut Function) {
         // Fill the defs map
         self.defs.clear();
         self.walk_function(function);
@@ -222,7 +207,7 @@ impl MirVisitor for MirLoopPass {
         function.loops = Some(loops);
     }
 
-    fn visit_basicblock(&mut self, block_id: BlockId, block: &mut BasicBlock) -> Self::Output {
+    fn visit_basicblock(&mut self, block_id: BlockId, block: &mut BasicBlock) {
         for phi in &block.phi_nodes {
             self.defs.insert(phi.dest, block_id);
         }

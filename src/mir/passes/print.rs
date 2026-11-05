@@ -65,8 +65,6 @@ impl MirPrintingPass {
 }
 
 impl MirVisitor for MirPrintingPass {
-    type Output = ();
-
     fn diagnostics(&self) -> &DiagnosticCollector {
         &self.diagnostics
     }
@@ -75,7 +73,7 @@ impl MirVisitor for MirPrintingPass {
         &mut self.diagnostics
     }
 
-    fn visit_program(&mut self, program: &mut Program) -> Self::Output {
+    fn visit_program(&mut self, program: &mut Program) {
         println!(
             "=== MIR Program ({} functions) ===\n",
             program.functions.len()
@@ -83,7 +81,7 @@ impl MirVisitor for MirPrintingPass {
         self.walk_program(program);
     }
 
-    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
+    fn visit_function(&mut self, function: &mut Function) {
         println!(
             "fn {}({} params: [{}]) -> {:?}:",
             function.name,
@@ -102,7 +100,7 @@ impl MirVisitor for MirPrintingPass {
         println!();
     }
 
-    fn visit_basicblock(&mut self, block_id: BlockId, block: &mut BasicBlock) -> Self::Output {
+    fn visit_basicblock(&mut self, block_id: BlockId, block: &mut BasicBlock) {
         let note = block
             .note
             .as_ref()
@@ -114,7 +112,7 @@ impl MirVisitor for MirPrintingPass {
         self.dedent();
     }
 
-    fn visit_instruction(&mut self, instruction: &mut Instruction) -> Self::Output {
+    fn visit_instruction(&mut self, instruction: &mut Instruction) {
         let args_str = instruction
             .args
             .iter()
@@ -129,7 +127,7 @@ impl MirVisitor for MirPrintingPass {
         self.walk_instruction(instruction);
     }
 
-    fn visit_terminator(&mut self, terminator: &mut Terminator) -> Self::Output {
+    fn visit_terminator(&mut self, terminator: &mut Terminator) {
         match terminator {
             Terminator::Br { target } => {
                 self.print(&format!("br {}", self.fmt_block(*target)));
@@ -157,7 +155,7 @@ impl MirVisitor for MirPrintingPass {
         self.walk_terminator(terminator);
     }
 
-    fn visit_operand(&mut self, _operand: &mut Operand) -> Self::Output {
+    fn visit_operand(&mut self, _operand: &mut Operand) {
         // Operands are printed inline, no need for separate visit
     }
 }

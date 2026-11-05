@@ -223,8 +223,6 @@ impl MirSSAPass {
 }
 
 impl MirVisitor for MirSSAPass {
-    type Output = ();
-
     fn diagnostics(&self) -> &DiagnosticCollector {
         &self.diagnostics
     }
@@ -233,11 +231,11 @@ impl MirVisitor for MirSSAPass {
         &mut self.diagnostics
     }
 
-    fn visit_program(&mut self, program: &mut Program) -> Self::Output {
+    fn visit_program(&mut self, program: &mut Program) {
         self.walk_program(program);
     }
 
-    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
+    fn visit_function(&mut self, function: &mut Function) {
         for (param_reg, _) in &function.params {
             function
                 .definitions

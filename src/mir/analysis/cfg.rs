@@ -1,4 +1,4 @@
-use crate::mir::{BlockId, Function, Terminator};
+use crate::mir::{BlockId, Function};
 use std::collections::HashSet;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -22,40 +22,15 @@ pub fn compute_cfg(function: &Function) -> (Predecessors, Successors) {
     }
 
     for (block_id, block) in function.arena.iter() {
-        match &block.terminator {
-            Terminator::Br { target } => {
-                // block_id -> target
-                successors
-                    .get_mut(&block_id)
-                    .expect("block pre-inserted")
-                    .push(*target);
-                predecessors
-                    .get_mut(target)
-                    .expect("block pre-inserted")
-                    .push(block_id);
-            }
-            Terminator::BrIf {
-                then_bb, else_bb, ..
-            } => {
-                // block_id -> then_bb, else_bb
-                successors
-                    .get_mut(&block_id)
-                    .expect("block pre-inserted")
-                    .push(*then_bb);
-                successors
-                    .get_mut(&block_id)
-                    .expect("block pre-inserted")
-                    .push(*else_bb);
-                predecessors
-                    .get_mut(then_bb)
-                    .expect("block pre-inserted")
-                    .push(block_id);
-                predecessors
-                    .get_mut(else_bb)
-                    .expect("block pre-inserted")
-                    .push(block_id);
-            }
-            _ => {}
+        for succ in block.terminator.successors() {
+            successors
+                .get_mut(&block_id)
+                .expect("block pre-inserted")
+                .push(succ);
+            predecessors
+                .get_mut(&succ)
+                .expect("block pre-inserted")
+                .push(block_id);
         }
     }
 

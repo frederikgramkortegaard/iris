@@ -26,8 +26,6 @@ impl MirTailCallPass {
 }
 
 impl MirVisitor for MirTailCallPass {
-    type Output = ();
-
     fn diagnostics(&self) -> &DiagnosticCollector {
         &self.diagnostics
     }

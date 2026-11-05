@@ -1,20 +1,15 @@
 use crate::diagnostics::DiagnosticCollector;
+use crate::mir::analysis::dfg::DFGAnalysis;
 use crate::mir::passes::MirPass;
 use crate::mir::visitor::MirVisitor;
 use crate::mir::Program;
 use crate::mir::{BasicBlock, BlockId, Function, Opcode, Operand, Reg, Terminator, Type};
 use log::debug;
-use std::collections::{HashMap, HashSet};
-
-type InstructionIndex = usize;
-
-type PhiIndex = usize;
+use std::collections::HashSet;
 
 /// Dead Code Elimination pass
 pub struct MirDCEPass {
     diagnostics: DiagnosticCollector,
-    defmap: HashMap<Reg, (BlockId, InstructionIndex)>,
-    phi_defmap: HashMap<Reg, (BlockId, PhiIndex)>,
     live: HashSet<Reg>,
     worklist: Vec<Reg>,
     changed: bool,
@@ -30,8 +25,6 @@ impl MirDCEPass {
     pub fn new() -> Self {
         MirDCEPass {
             diagnostics: DiagnosticCollector::new(),
-            defmap: HashMap::new(),
-            phi_defmap: HashMap::new(),
             live: HashSet::new(),
             worklist: vec![],
             changed: false,
@@ -47,30 +40,21 @@ impl MirDCEPass {
         matches!(op, Opcode::Call)
     }
 
-    fn propagate_worklist(&mut self, function: &Function) {
-        while let Some(reg) = self.worklist.pop() {
-            // Check regular instructions
-            if let Some((block_id, idx)) = self.defmap.get(&reg) {
-                let inst = &function.arena.get(*block_id).instructions[*idx];
+    fn propagate_worklist(&mut self, function: &Function, dfg: &DFGAnalysis) {
+        let live = &mut self.live;
+        let worklist = &mut self.worklist;
+        while let Some(reg) = worklist.pop() {
+            let defs = [
+                dfg.get_instruction(function, reg),
+                dfg.get_phi(function, reg),
+            ];
+            for inst in defs.into_iter().flatten() {
                 for arg in &inst.args {
-                    if let Operand::Reg(r) = arg {
-                        if self.live.insert(*r) {
-                            self.worklist.push(*r);
+                    arg.for_each_reg(&mut |r| {
+                        if live.insert(r) {
+                            worklist.push(r);
                         }
-                    }
-                }
-            }
-            // Check phi nodes
-            if let Some((block_id, idx)) = self.phi_defmap.get(&reg) {
-                let phi = &function.arena.get(*block_id).phi_nodes[*idx];
-                for arg in &phi.args {
-                    if let Operand::Pair(_, inner) = arg {
-                        if let Operand::Reg(r) = inner.as_ref() {
-                            if self.live.insert(*r) {
-                                self.worklist.push(*r);
-                            }
-                        }
-                    }
+                    });
                 }
             }
         }
@@ -99,10 +83,8 @@ impl MirDCEPass {
     }
 }
 
-// The visitor is used to mark liveness and build the defmap
+// The visitor is used to mark the liveness roots
 impl MirVisitor for MirDCEPass {
-    type Output = ();
-
     fn diagnostics(&self) -> &DiagnosticCollector {
         &self.diagnostics
     }
@@ -111,36 +93,28 @@ impl MirVisitor for MirDCEPass {
         &mut self.diagnostics
     }
 
-    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
-        self.defmap.clear();
-        self.phi_defmap.clear();
+    fn visit_function(&mut self, function: &mut Function) {
         self.live.clear();
         self.worklist.clear();
 
         self.walk_function(function);
         debug!(
-            "Function: {}:\ndefmap: {:?}\nlive: {:?}\nworklist: {:?}\n\n",
-            function.name, self.defmap, self.live, self.worklist
+            "Function: {}:\nlive: {:?}\nworklist: {:?}\n\n",
+            function.name, self.live, self.worklist
         );
 
-        self.propagate_worklist(function);
+        let dfg = DFGAnalysis::compute(function);
+        self.propagate_worklist(function, &dfg);
 
         self.sweep(function);
         debug!(
-            "Function: {}:\ndefmap: {:?}\nlive: {:?}\nworklist: {:?}\n\n",
-            function.name, self.defmap, self.live, self.worklist
+            "Function: {}:\nlive: {:?}\nworklist: {:?}\n\n",
+            function.name, self.live, self.worklist
         );
     }
 
-    fn visit_basicblock(&mut self, block_id: BlockId, block: &mut BasicBlock) -> Self::Output {
-        // Track phi definitions
-        for (i, phi) in block.phi_nodes.iter().enumerate() {
-            self.phi_defmap.insert(phi.dest, (block_id, i));
-        }
-
-        for (i, instruction) in block.instructions.iter().enumerate() {
-            self.defmap.insert(instruction.dest, (block_id, i));
-
+    fn visit_basicblock(&mut self, _block_id: BlockId, block: &mut BasicBlock) {
+        for instruction in block.instructions.iter() {
             // If the instruction has (or could have) side effects, we assume the dest is live,
             // because the defining line itself can't be known to be safe to delete at this point
             if self.has_side_effects(&instruction.op) {
@@ -163,7 +137,7 @@ impl MirVisitor for MirDCEPass {
         self.walk_basicblock(block);
     }
 
-    fn visit_terminator(&mut self, term: &mut Terminator) -> Self::Output {
+    fn visit_terminator(&mut self, term: &mut Terminator) {
         match &term {
             Terminator::Ret {
                 value: Some(Operand::Reg(r)),
@@ -180,7 +154,7 @@ impl MirVisitor for MirDCEPass {
         }
     }
 
-    fn visit_param(&mut self, reg: Reg, _type: Type) -> Self::Output {
+    fn visit_param(&mut self, reg: Reg, _type: Type) {
         // Parameters are special, they are ALWAYS considered live @TODO : Maybe it would be
         // possible to do some weird optimization here
         self.live.insert(reg);
