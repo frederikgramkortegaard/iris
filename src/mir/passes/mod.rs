@@ -4,6 +4,7 @@ pub mod cse;
 pub mod dbe;
 pub mod dce;
 pub mod deconstruct;
+pub mod inlining;
 pub mod loops;
 pub mod print;
 pub mod reg_compact;

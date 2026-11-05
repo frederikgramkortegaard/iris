@@ -60,6 +60,24 @@ impl Operand {
             Operand::Reg(_) | Operand::Pair { .. } | Operand::Label(_)
         )
     }
+
+    /// Call f on every register in this operand (recurses through Pair)
+    pub fn for_each_reg(&self, f: &mut impl FnMut(Reg)) {
+        match self {
+            Operand::Reg(r) => f(*r),
+            Operand::Pair(_, inner) => inner.for_each_reg(f),
+            _ => {}
+        }
+    }
+
+    /// Rewrite every register in this operand through f (recurses through Pair)
+    pub fn map_regs(&mut self, f: &mut impl FnMut(Reg) -> Reg) {
+        match self {
+            Operand::Reg(r) => *r = f(*r),
+            Operand::Pair(_, inner) => inner.map_regs(f),
+            _ => {}
+        }
+    }
 }
 /// Type-safe block identifier (index into BlockArena)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -83,7 +101,7 @@ pub struct Instruction {
     pub args: Vec<Operand>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BasicBlock {
     pub instructions: Vec<Instruction>,
     pub terminator: Terminator,
@@ -91,7 +109,7 @@ pub struct BasicBlock {
     pub note: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Terminator {
     Br {
         target: BlockId,
@@ -105,6 +123,57 @@ pub enum Terminator {
         value: Option<Operand>,
     },
     Unreachable,
+}
+
+impl Terminator {
+    /// Blocks this terminator can branch to
+    pub fn successors(&self) -> Vec<BlockId> {
+        match self {
+            Terminator::Br { target } => vec![*target],
+            Terminator::BrIf {
+                then_bb, else_bb, ..
+            } => vec![*then_bb, *else_bb],
+            Terminator::Ret { .. } | Terminator::Unreachable => vec![],
+        }
+    }
+
+    /// Operands this terminator reads (BrIf cond, Ret value)
+    pub fn operands(&self) -> impl Iterator<Item = &Operand> {
+        match self {
+            Terminator::BrIf { cond, .. } => Some(cond),
+            Terminator::Ret { value } => value.as_ref(),
+            _ => None,
+        }
+        .into_iter()
+    }
+
+    pub fn operands_mut(&mut self) -> impl Iterator<Item = &mut Operand> {
+        match self {
+            Terminator::BrIf { cond, .. } => Some(cond),
+            Terminator::Ret { value } => value.as_mut(),
+            _ => None,
+        }
+        .into_iter()
+    }
+
+    /// Rewrite each branch target through f (each target exactly once)
+    pub fn map_targets(&mut self, mut f: impl FnMut(BlockId) -> BlockId) {
+        match self {
+            Terminator::Br { target } => *target = f(*target),
+            Terminator::BrIf {
+                then_bb, else_bb, ..
+            } => {
+                *then_bb = f(*then_bb);
+                *else_bb = f(*else_bb);
+            }
+            _ => {}
+        }
+    }
+
+    /// Replace every branch target equal to `from` with `to`
+    pub fn retarget(&mut self, from: BlockId, to: BlockId) {
+        self.map_targets(|t| if t == from { to } else { t });
+    }
 }
 
 /// Arena for allocating basic blocks.
@@ -136,6 +205,12 @@ impl BlockArena {
         self.next_id += 1;
         self.blocks.insert(id.0, block);
         id
+    }
+
+    /// Uses up the next free BlockId without automatically allocating a new bock
+    pub fn reserve(&mut self) -> BlockId {
+        self.next_id += 1;
+        BlockId(self.next_id - 1)
     }
 
     /// Get a reference to a block by ID
@@ -176,6 +251,20 @@ impl BlockArena {
     }
 }
 
+/// Type-safe function identifier (index into FunctionArena)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct FuncId(usize);
+
+impl FuncId {
+    pub fn new(id: usize) -> Self {
+        FuncId(id)
+    }
+
+    pub fn index(self) -> usize {
+        self.0
+    }
+}
+
 #[derive(Debug)]
 pub struct Function {
     pub name: String,
@@ -190,6 +279,12 @@ pub struct Function {
 }
 
 impl Function {
+    /// Bump `next_free_reg`
+    pub fn reserve_next_free_reg(&mut self) -> Reg {
+        self.next_free_reg += 1;
+        self.next_free_reg - 1
+    }
+
     /// Create a new function with an entry block and virtual entry
     pub fn new(name: String, params: Vec<(Reg, Type)>, return_type: Type) -> Self {
         let mut arena = BlockArena::new();
@@ -252,6 +347,68 @@ impl Function {
     }
 }
 
+/// Arena for allocating functions.
+/// Same deal as BlockArena: the map key is the id, so removing a function
+/// can never invalidate another one's id, and BTreeMap iteration is always
+/// in id order.
+#[derive(Debug, Default)]
+pub struct FunctionArena {
+    functions: BTreeMap<usize, Function>,
+    next_id: usize,
+}
+
+impl FunctionArena {
+    pub fn new() -> Self {
+        FunctionArena {
+            functions: BTreeMap::new(),
+            next_id: 0,
+        }
+    }
+
+    /// Allocate a new function and return its ID
+    pub fn alloc(&mut self, function: Function) -> FuncId {
+        let id = FuncId(self.next_id);
+        self.next_id += 1;
+        self.functions.insert(id.0, function);
+        id
+    }
+
+    /// Get a reference to a function by ID
+    pub fn get(&self, id: FuncId) -> &Function {
+        self.functions.get(&id.0).expect("Invalid FuncId")
+    }
+
+    /// Get a mutable reference to a function by ID
+    pub fn get_mut(&mut self, id: FuncId) -> &mut Function {
+        self.functions.get_mut(&id.0).expect("Invalid FuncId")
+    }
+
+    /// Iterate over all functions with their IDs, in id order
+    pub fn iter(&self) -> impl Iterator<Item = (FuncId, &Function)> {
+        self.functions.iter().map(|(&id, f)| (FuncId(id), f))
+    }
+
+    /// Iterate mutably over all functions with their IDs, in id order
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (FuncId, &mut Function)> {
+        self.functions.iter_mut().map(|(&id, f)| (FuncId(id), f))
+    }
+
+    /// Remove a function by ID
+    pub fn remove(&mut self, id: FuncId) {
+        self.functions.remove(&id.0);
+    }
+
+    /// Get the number of functions
+    pub fn len(&self) -> usize {
+        self.functions.len()
+    }
+
+    /// Check if arena is empty
+    pub fn is_empty(&self) -> bool {
+        self.functions.is_empty()
+    }
+}
+
 pub struct Program {
-    pub functions: Vec<Function>,
+    pub functions: FunctionArena,
 }

@@ -10,7 +10,7 @@ use std::collections::HashMap;
 /// Pass that lowers HIR (AST) to MIR
 pub struct LoweringPass {
     diagnostics: DiagnosticCollector,
-    functions: Vec<mir::Function>,
+    functions: mir::FunctionArena,
     scope_stack: Vec<HashMap<String, Reg>>,
     register_cursor: usize,
     current_function: Option<mir::Function>,
@@ -27,7 +27,7 @@ impl LoweringPass {
     pub fn new() -> Self {
         LoweringPass {
             diagnostics: DiagnosticCollector::new(),
-            functions: Vec::new(),
+            functions: mir::FunctionArena::new(),
             scope_stack: Vec::new(),
             register_cursor: 0,
             current_function: None,
@@ -205,7 +205,7 @@ impl Visitor for LoweringPass {
         // Take the function and store it
         if let Some(mut func) = self.current_function.take() {
             func.next_free_reg = self.register_cursor;
-            self.functions.push(func);
+            self.functions.alloc(func);
         }
         self.current_block = None;
 

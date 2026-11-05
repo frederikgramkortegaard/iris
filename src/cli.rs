@@ -12,6 +12,7 @@ use crate::mir::passes::cse::MirCSEPass;
 use crate::mir::passes::dbe::MirDeadBlockEliminationPass;
 use crate::mir::passes::dce::MirDCEPass;
 use crate::mir::passes::deconstruct::MirSSADeconstructionPass;
+use crate::mir::passes::inlining::MirInliningPass;
 use crate::mir::passes::loops::MirLoopPass;
 use crate::mir::passes::print::MirPrintingPass;
 use crate::mir::passes::reg_compact::RegCompactPass;
@@ -112,6 +113,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Run MIR passes
     if !no_opt {
         mir.run_pass(&mut MirTailCallPass::new())?;
+        mir.run_pass(&mut MirInliningPass::new())?;
     }
     mir.run_pass(&mut MirSSAPass::new())?;
 

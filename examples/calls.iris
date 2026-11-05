@@ -1,0 +1,55 @@
+# EXPECTED: leaf_a(4) == 5
+# EXPECTED: leaf_b(4) == 8
+# EXPECTED: mid_one(4) == 13
+# EXPECTED: mid_two(4) == 6
+# EXPECTED: top(4) == 19
+# EXPECTED: alone(4) == 3
+# EXPECTED: selfrec(5) == 5
+# EXPECTED: selfrec(0) == 0
+# EXPECTED: ping(3) == 4
+# EXPECTED: pong(3) == 3
+
+fn leaf_a(x: f64) -> f64 {
+  return x + 1
+}
+
+fn leaf_b(x: f64) -> f64 {
+  return x * 2
+}
+
+fn mid_one(x: f64) -> f64 {
+  return leaf_a(x) + leaf_b(x)
+}
+
+fn mid_two(x: f64) -> f64 {
+  return leaf_a(leaf_a(x))
+}
+
+fn top(x: f64) -> f64 {
+  return mid_one(x) + mid_two(x)
+}
+
+fn alone(x: f64) -> f64 {
+  return x - 1
+}
+
+fn selfrec(n: f64) -> f64 {
+  if (n <= 0) {
+    return 0
+  }
+  return selfrec(n - 1) + 1
+}
+
+fn ping(n: f64) -> f64 {
+  if (n <= 0) {
+    return 0
+  }
+  return pong(n - 1) + 1
+}
+
+fn pong(n: f64) -> f64 {
+  if (n <= 0) {
+    return 1
+  }
+  return ping(n - 1) + 1
+}
