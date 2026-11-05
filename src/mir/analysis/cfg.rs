@@ -89,6 +89,8 @@ pub fn compute_rpo(entry: BlockId, successors: &Successors) -> Vec<BlockId> {
 
     dfs(successors, &mut visited, &mut rpo, entry);
 
+    // dfs pushed blocks in postorder, reverse to get RPO
+    rpo.reverse();
     rpo
 }
 
@@ -214,6 +216,7 @@ pub fn compute_dominator_tree(
     successors: &Successors,
 ) -> DominatorTree {
     let mut idom = DominatorTree::new();
+    // only used as a reachability set here, the RPO order is discarded
     let reachable: HashSet<BlockId> = compute_rpo(function.virtual_entry, successors)
         .into_iter()
         .collect();
