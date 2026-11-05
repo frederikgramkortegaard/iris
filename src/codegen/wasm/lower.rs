@@ -1,9 +1,10 @@
-use crate::codegen::wasm::ramsey::ramsey_structuring;
 use crate::codegen::wasm::types::{WatFunction, WatInstruction, WatModule, WatType};
-use crate::codegen::wasm::StructuredNode;
-use crate::mir::analysis::cfg::{compute_cfg, compute_dominator_tree, compute_dominators};
-use crate::mir::{Function, Instruction, Opcode, Operand, Program, Reg, Terminator, Type};
-use std::collections::{BTreeMap, HashSet};
+use crate::mir::analysis::cfg::{
+    compute_cfg, compute_dominator_tree, compute_dominators, compute_rpo, DominatorSets,
+    DominatorTree, Predecessors, Successors,
+};
+use crate::mir::{BlockId, Function, Instruction, Opcode, Operand, Program, Reg, Terminator, Type};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 fn mir_type_to_wat(typ: Type) -> WatType {
     match typ {
@@ -136,8 +137,8 @@ fn lower_instruction(inst: &Instruction, function: &Function) -> Vec<WatInstruct
 }
 
 /// Lower a basic block's instructions and terminator.
-/// Br/BrIf terminators are skipped; the parent StructuredNode handles control flow.
-fn lower_block(block_id: crate::mir::BlockId, function: &Function) -> Vec<WatInstruction> {
+/// Br/BrIf terminators are skipped; the structuring walk handles control flow.
+fn lower_block(block_id: BlockId, function: &Function) -> Vec<WatInstruction> {
     let block = function.arena.get(block_id);
     let mut wat = Vec::new();
 
@@ -164,98 +165,203 @@ fn lower_block(block_id: crate::mir::BlockId, function: &Function) -> Vec<WatIns
     wat
 }
 
-/// Walk a StructuredNode tree, emitting WAT instructions.
-fn lower_node(node: &StructuredNode, function: &Function) -> Vec<WatInstruction> {
-    match node {
-        StructuredNode::Block(block_id) => lower_block(*block_id, function),
+#[derive(Debug, Clone)]
+pub enum ContainingStack {
+    BlockFollowedBy { followed_by: BlockId },
+    LoopHeadedBy { headed_by: BlockId },
+    IfThenElse,
+}
 
-        StructuredNode::Sequence(nodes) => {
-            let mut wat = Vec::new();
-            for child in nodes {
-                wat.extend(lower_node(child, function));
+/*
+*do_tree(X, ctx):
+    kids = dominator children of X that are merge nodes, RPO ascending
+    if X is a loop header:
+        loop { node_within(X, kids, LoopHeadedBy(X) :: ctx) }
+    else:
+        node_within(X, kids, ctx)
+*
+*
+*
+* node_within(X, kids, ctx):
+    if kids not empty:
+        Y = kids.last()                       // largest RPO: outermost
+        block { node_within(X, kids - Y, BlockFollowedBy(Y) :: ctx) }
+        do_tree(Y, ctx)                       // Y starts right after end
+    else:
+        X's instructions
+        then X's terminator:
+            Br T        -> do_branch(X, T, ctx)
+            BrIf c,A,B  -> push c
+                           if   { do_branch(X, A, IfThenElse :: ctx) }
+                           else { do_branch(X, B, IfThenElse :: ctx) }
+            Ret         -> return
+            Unreachable -> unreachable
+* */
+
+/// Branch depth for a br naming `target`: the number of constructs between
+/// here and the one whose landing point is `target`, innermost first.
+/// Panics if no enclosing construct targets it -- that means the nesting
+/// built by do_tree/node_within is wrong (or the CFG is irreducible).
+fn index(target: BlockId, context: &[ContainingStack]) -> u32 {
+    context
+        .iter()
+        .rev()
+        .position(|frame| match frame {
+            ContainingStack::BlockFollowedBy { followed_by } => *followed_by == target,
+            ContainingStack::LoopHeadedBy { headed_by } => *headed_by == target,
+            ContainingStack::IfThenElse => false,
+        })
+        .unwrap_or_else(|| panic!("no enclosing construct targets {:?}", target)) as u32
+}
+
+#[allow(clippy::too_many_arguments)]
+fn do_branch(
+    function: &Function,
+    preds: &Predecessors,
+    doms: &DominatorSets,
+    rpo_of: &HashMap<BlockId, usize>,
+    dom_kids: &BTreeMap<BlockId, Vec<BlockId>>,
+    block_id: BlockId,
+    target: BlockId,
+    context: &mut Vec<ContainingStack>,
+) -> Vec<WatInstruction> {
+    if rpo_of[&target] <= rpo_of[&block_id] {
+        // backedge (or self-edge): the loop frame is in context
+        vec![WatInstruction::Br(index(target, context))]
+    } else if preds[&target].len() > 1 {
+        // forward edge to a merge node: its wrapper block is in context
+        vec![WatInstruction::Br(index(target, context))]
+    } else {
+        // we are the only way in: place target's code right here
+        do_tree(function, preds, doms, rpo_of, dom_kids, target, context)
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn node_within(
+    function: &Function,
+    preds: &Predecessors,
+    doms: &DominatorSets,
+    rpo_of: &HashMap<BlockId, usize>,
+    dom_kids: &BTreeMap<BlockId, Vec<BlockId>>,
+    block_id: BlockId,
+    mut kids: Vec<BlockId>,
+    context: &mut Vec<ContainingStack>,
+) -> Vec<WatInstruction> {
+    let mut out = vec![];
+    if let Some(y) = kids.pop() {
+        // largest RPO: outermost wrapper
+        context.push(ContainingStack::BlockFollowedBy { followed_by: y });
+        out.push(WatInstruction::Block {
+            label: None,
+            body: node_within(
+                function, preds, doms, rpo_of, dom_kids, block_id, kids, context,
+            ),
+        });
+        context.pop();
+
+        out.extend(do_tree(function, preds, doms, rpo_of, dom_kids, y, context));
+    } else {
+        out.extend(lower_block(block_id, function)); // X's actual instructions
+        match &function.arena.get(block_id).terminator {
+            Terminator::Br { target } => {
+                out.extend(do_branch(
+                    function, preds, doms, rpo_of, dom_kids, block_id, *target, context,
+                ));
             }
-            wat
-        }
-
-        StructuredNode::If {
-            cond,
-            then_branch,
-            else_branch,
-        } => {
-            let block = function.arena.get(*cond);
-            let mut wat = Vec::new();
-
-            // Lower the condition block's instructions
-            for inst in &block.instructions {
-                wat.extend(lower_instruction(inst, function));
+            Terminator::BrIf {
+                cond,
+                then_bb,
+                else_bb,
+            } => {
+                out.push(lower_operand(cond));
+                context.push(ContainingStack::IfThenElse);
+                let then_body = do_branch(
+                    function, preds, doms, rpo_of, dom_kids, block_id, *then_bb, context,
+                );
+                let else_body = do_branch(
+                    function, preds, doms, rpo_of, dom_kids, block_id, *else_bb, context,
+                );
+                context.pop();
+                out.push(WatInstruction::If {
+                    then_body,
+                    else_body,
+                });
             }
-
-            // Push the condition value from the BrIf terminator
-            match &block.terminator {
-                Terminator::BrIf { cond, .. } => {
-                    wat.push(lower_operand(cond));
-                }
-                _ => unreachable!("If node's cond block must end with BrIf"),
-            }
-
-            // Emit if/else with recursively lowered branches. Arms that don't
-            // return fall through into whatever comes after the if.
-            wat.push(WatInstruction::If {
-                then_body: lower_node(then_branch, function),
-                else_body: lower_node(else_branch, function),
-            });
-            wat
-        }
-
-        StructuredNode::Loop {
-            header,
-            body_entries,
-            body,
-        } => {
-            let block = function.arena.get(*header);
-            let mut header_wat = Vec::new();
-
-            // Lower header block's instructions
-            for inst in &block.instructions {
-                header_wat.extend(lower_instruction(inst, function));
-            }
-
-            // One side of the header's BrIf continues the loop, the other
-            // exits. Don't assume which is which, check if then_bb is in
-            // the loop body (tail call loops have it the other way around).
-            match &block.terminator {
-                Terminator::BrIf { cond, then_bb, .. } => {
-                    header_wat.push(lower_operand(cond));
-                    if body_entries.contains(then_bb) {
-                        // cond=true continues the loop: exit when NOT true
-                        header_wat.push(WatInstruction::I32Eqz);
-                    }
-                    header_wat.push(WatInstruction::BrIf(1));
-                }
-                Terminator::Br { .. } => {
-                    // Unconditional loop, no exit condition in header
-                }
-                _ => unreachable!("Loop header must end with Br or BrIf"),
-            }
-
-            // Lower the loop body
-            let body_wat = lower_node(body, function);
-
-            // Combine: header + body + br 0 (back to loop top)
-            let mut loop_body = header_wat;
-            loop_body.extend(body_wat);
-            loop_body.push(WatInstruction::Br(0));
-
-            // Wrap: block { loop { ... } }
-            vec![WatInstruction::Block {
-                label: None,
-                body: vec![WatInstruction::Loop {
-                    label: None,
-                    body: loop_body,
-                }],
-            }]
+            // lower_block already emitted these
+            Terminator::Ret { .. } | Terminator::Unreachable => {}
         }
     }
+
+    out
+}
+
+#[allow(clippy::too_many_arguments)]
+fn do_tree(
+    function: &Function,
+    preds: &Predecessors,
+    doms: &DominatorSets,
+    rpo_of: &HashMap<BlockId, usize>,
+    dom_kids: &BTreeMap<BlockId, Vec<BlockId>>,
+    block_id: BlockId,
+    context: &mut Vec<ContainingStack>,
+) -> Vec<WatInstruction> {
+    // dominator children of X that are merge nodes, RPO ascending
+    let kids: Vec<BlockId> = dom_kids
+        .get(&block_id)
+        .into_iter()
+        .flatten()
+        .filter(|k| preds[k].len() > 1)
+        .copied()
+        .collect();
+
+    // block_id is a loop header
+    if preds[&block_id].iter().any(|u| doms[u].contains(&block_id)) {
+        context.push(ContainingStack::LoopHeadedBy {
+            headed_by: block_id,
+        });
+        let body = node_within(
+            function, preds, doms, rpo_of, dom_kids, block_id, kids, context,
+        );
+        context.pop();
+        vec![WatInstruction::Loop { label: None, body }]
+    } else {
+        node_within(
+            function, preds, doms, rpo_of, dom_kids, block_id, kids, context,
+        )
+    }
+}
+
+pub fn ramsey_structured_codegen(
+    function: &Function,
+    entry: BlockId,
+    doms: &DominatorSets,
+    dom_tree: &DominatorTree,
+    succs: &Successors,
+    preds: &Predecessors,
+) -> Vec<WatInstruction> {
+    let rpo = compute_rpo(entry, succs);
+    let rpo_of: HashMap<BlockId, usize> =
+        rpo.iter().enumerate().map(|(e, bid)| (*bid, e)).collect();
+
+    // dom_tree maps child -> idom, the recursion wants parent -> children
+    let mut dom_kids: BTreeMap<BlockId, Vec<BlockId>> = BTreeMap::new();
+    for (&child, &parent) in dom_tree {
+        dom_kids.entry(parent).or_default().push(child);
+    }
+    for v in dom_kids.values_mut() {
+        v.sort_by_key(|b| rpo_of[b]);
+    }
+
+    do_tree(
+        function,
+        preds,
+        doms,
+        &rpo_of,
+        &dom_kids,
+        entry,
+        &mut vec![],
+    )
 }
 
 fn lower_function(function: &Function) -> WatFunction {
@@ -293,10 +399,15 @@ fn lower_function(function: &Function) -> WatFunction {
     let (preds, succs) = compute_cfg(function);
     let dom_sets = compute_dominators(function, &preds);
     let dom_tree = compute_dominator_tree(function, &dom_sets, &succs);
-    let structure = ramsey_structuring(function.virtual_entry, &dom_tree, &succs, &preds);
 
-    // Lower the structured tree into WAT instructions
-    let mut body = lower_node(&structure, function);
+    let mut body = ramsey_structured_codegen(
+        function,
+        function.virtual_entry,
+        &dom_sets,
+        &dom_tree,
+        &succs,
+        &preds,
+    );
 
     // if every path returns this point is dead, but the validator still
     // wants the stack to match the result type at the end
@@ -314,6 +425,39 @@ fn lower_function(function: &Function) -> WatFunction {
 }
 
 pub fn lower(program: &Program) -> WatModule {
-    let functions = program.functions.iter().map(lower_function).collect();
+    let functions = program
+        .functions
+        .iter()
+        .map(|(_, f)| lower_function(f))
+        .collect();
     WatModule { functions }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn index_counts_frames_from_innermost() {
+        // stack grows left to right: Loop(9) is outermost, the Ifs innermost
+        let ctx = vec![
+            ContainingStack::LoopHeadedBy {
+                headed_by: BlockId::new(9),
+            },
+            ContainingStack::BlockFollowedBy {
+                followed_by: BlockId::new(15),
+            },
+            ContainingStack::IfThenElse,
+            ContainingStack::IfThenElse,
+        ];
+        assert_eq!(index(BlockId::new(15), &ctx), 2);
+        assert_eq!(index(BlockId::new(9), &ctx), 3);
+    }
+
+    #[test]
+    #[should_panic]
+    fn index_panics_on_missing_target() {
+        let ctx = vec![ContainingStack::IfThenElse];
+        index(BlockId::new(42), &ctx);
+    }
 }

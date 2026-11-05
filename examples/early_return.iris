@@ -1,0 +1,50 @@
+# EXPECTED: find_first_over(10) == 2
+# EXPECTED: find_first_over(100) == 3
+# EXPECTED: find_first_over(1000000) == 7
+# EXPECTED: count_or_bail(3) == 6
+# EXPECTED: count_or_bail(10) == -1
+# EXPECTED: nested_escape(2) == 13
+
+# return from inside a loop body: the shape the old backend could not
+# express (a br out of the loop from below an if, not at the header)
+
+fn find_first_over(limit: f64) -> f64 {
+  var i = 0
+  var p = 1
+  while (i < 20) {
+    if (p > limit) {
+      return i
+    }
+    p = p * 10
+    i = i + 1
+  }
+  return 0 - 1
+}
+
+fn count_or_bail(n: f64) -> f64 {
+  var s = 0
+  var i = 1
+  while (i <= n) {
+    if (i > 5) {
+      return 0 - 1
+    }
+    s = s + i
+    i = i + 1
+  }
+  return s
+}
+
+fn nested_escape(n: f64) -> f64 {
+  var i = 0
+  while (i < 10) {
+    var j = 0
+    while (j < 10) {
+      if (i * j > n) {
+        return i * 10 + j
+      }
+      j = j + 1
+    }
+    i = i + 1
+  }
+  return 0
+}
