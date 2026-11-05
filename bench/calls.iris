@@ -1,0 +1,14 @@
+# inlining bait: tiny loop-free callee in a hot loop, should get inlined
+fn mix(x: f64, y: f64) -> f64 {
+  return x * 0.5 + y * 0.25 + 1
+}
+
+fn calls(n: f64) -> f64 {
+  var sum = 0
+  var i = 0
+  while (i < n) {
+    sum = mix(sum, i) + mix(i, sum)
+    i = i + 1
+  }
+  return sum
+}

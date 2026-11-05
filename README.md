@@ -213,40 +213,22 @@ instead shows up at run time (see below).
 
 ## Benchmarks
 
-`bench/run.sh` times the compute-heavy programs in `bench/` compiled with
-and without the optimization pipeline, using hyperfine with 2 warmups and
-10 runs. Each program runs under two engine configurations: wasmtime with
-its defaults, and `wasmtime -O opt-level=0`, which disables cranelift's own
-optimizer. We added the second configuration as we noticed that the JIT
-otherwise re-derives most of what the mid-end has already done, making it
-impossible to tell which improvements are actually ours. Both variants are
-checked for identical results before anything is timed.
+`bench/run.sh` times the programs in `bench/` with and without the
+optimization pipeline, under wasmtime (cranelift's optimizer on and off)
+and the wasmi interpreter. Cells are opt / no-opt ms, interpreter
+workloads are sized smaller.
 
-| benchmark                  | engine        | no-opt   | opt      |
-|----------------------------|---------------|---------:|---------:|
-| fib(40), call-heavy        | jit           |   541 ms |   527 ms |
-| fib(40)                    | jit opt off   |   526 ms |   534 ms |
-| mandel(1200^2), float-heavy| jit           |   393 ms |   390 ms |
-| mandel(1200^2)             | jit opt off   |   390 ms |   389 ms |
-| nested(3e8 iters), licm    | jit           |   407 ms |   407 ms |
-| nested(3e8 iters)          | jit opt off   |   408 ms |   398 ms |
-| sum_tail(5e6), deep recursion | jit        |  trap: stack exhausted | 12.5e12 (correct) |
+| benchmark               |       jit |   jit opt off |        interp |
+|-------------------------|----------:|--------------:|--------------:|
+| fib, call-heavy         | 523 / 507 |     531 / 524 |     476 / 487 |
+| mandel, float-heavy     | 380 / 390 |     382 / 383 |     200 / 211 |
+| nested, licm bait       | 393 / 394 |     372 / 381 |     654 / 649 |
+| gvn, redundancy bait    | 394 / 396 |     378 / 386 | **350 / 614** |
+| calls, inlining bait    | **414 / 506** | 437 / 487 | **389 / 620** |
+| phi, branch-heavy       | 460 / 482 |     511 / 517 | **386 / 498** |
+| orbit, whole program    | 397 / 386 |     387 / 397 |     381 / 427 |
+| sum_tail, deep recursion | 12.5e12 (correct) / trap: stack exhausted | | |
 
-With cranelift's optimizer enabled the two columns are within noise of each
-other on every benchmark. This is the expected outcome for a mid-end
-running in front of a modern JIT, and we consider the honest wins to be
-elsewhere: the instruction counts in the previous section, and the fact
-that `sum_tail(5000000)` exhausts the call stack without tail call
-optimization and simply runs with it. With the optimizer disabled, LICM
-accounts for a measurable difference on the workload built for it
-(408 ms to 398 ms on nested).
-
-It should also be noted that the benchmarks changed one of our passes.
-The inlining pass initially inlined every non-recursive call, and mandel
-became 12% slower as a result, since inlining cell() into the pixel loop
-increased register pressure where it matters most. The call overhead it
-removed was already amortized by the loop inside cell() itself. As a
-consequence of this, callees containing a loop are never inlined.
 
 ## Building
 

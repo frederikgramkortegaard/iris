@@ -1,0 +1,29 @@
+# whole-program: two-body orbit with a newton sqrt, no single pass dominates
+fn nsqrt(x: f64) -> f64 {
+  var g = x
+  var k = 0
+  while (k < 6) {
+    g = 0.5 * (g + x / g)
+    k = k + 1
+  }
+  return g
+}
+
+fn orbit(steps: f64, dt: f64) -> f64 {
+  var px = 1
+  var py = 0
+  var vx = 0
+  var vy = 1
+  var i = 0
+  while (i < steps) {
+    var r2 = px * px + py * py + 0.0001
+    var r = nsqrt(r2)
+    var f = 1 / (r2 * r)
+    vx = vx - px * f * dt
+    vy = vy - py * f * dt
+    px = px + vx * dt
+    py = py + vy * dt
+    i = i + 1
+  }
+  return px * px + py * py + vx + vy
+}

@@ -1,0 +1,14 @@
+# redundancy-heavy: the same subexpressions recomputed per iteration, gvn bait
+# (they depend on i, so licm cannot hoist them)
+fn gvn(n: f64, a: f64, b: f64, c: f64) -> f64 {
+  var sum = 0
+  var i = 0
+  while (i < n) {
+    var t1 = (i * a + b) * (i * a + b)
+    var t2 = (i * a + b) / (i * b + a)
+    var t3 = (i * b + a) * c
+    sum = sum + t1 + t2 + t3
+    i = i + 1
+  }
+  return sum
+}
