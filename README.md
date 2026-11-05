@@ -8,7 +8,6 @@ Iris is a compiler for a custom language targeting WebAssembly, written from scr
 - Optimization passes: constant propagation, CSE, LICM, copy propagation, DCE, function inlining, tail call optimization, dead block elimination, register compaction, peephole optimization
 - SCEV (Scalar Evolution) / Induction Variable Analysis, Trip Count Computation
 - [Ramsey (2022)](https://dl.acm.org/doi/10.1145/3547621) structure recovery for CFG -> structured WebAssembly
-- Visitor pattern for traversal and transformation of both HIR and MIR
 
 ## Example
 
