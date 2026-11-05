@@ -44,7 +44,7 @@ jobs:
         run: |
           mkdir -p wat
           for f in examples/*.iris; do
-            ./target/release/iris "$f" -o "wat/$(basename "${f%.iris}").wat"
+            ./target/debug/iris "$f" -o "wat/$(basename "${f%.iris}").wat"
           done
       - uses: actions/upload-artifact@v4
         with:
