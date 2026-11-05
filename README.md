@@ -218,15 +218,15 @@ optimization pipeline, under wasmtime (cranelift's optimizer on and off)
 and the wasmi interpreter. Cells are opt / no-opt ms, interpreter
 workloads are sized smaller.
 
-| benchmark               |       jit |   jit opt off |        interp |
-|-------------------------|----------:|--------------:|--------------:|
-| fib, call-heavy         | 523 / 507 |     531 / 524 |     476 / 487 |
-| mandel, float-heavy     | 380 / 390 |     382 / 383 |     200 / 211 |
-| nested, licm bait       | 393 / 394 |     372 / 381 |     654 / 649 |
-| gvn, redundancy bait    | 394 / 396 |     378 / 386 | **350 / 614** |
-| calls, inlining bait    | **414 / 506** | 437 / 487 | **389 / 620** |
-| phi, branch-heavy       | 460 / 482 |     511 / 517 | **386 / 498** |
-| orbit, whole program    | 397 / 386 |     387 / 397 |     381 / 427 |
+| benchmark               |             jit |     jit opt off |               interp |
+|-------------------------|----------------:|----------------:|---------------------:|
+| fib, call-heavy         | 523 / 507 (+3%) | 531 / 524 (+1%) |      476 / 487 (−2%) |
+| mandel, float-heavy     | 380 / 390 (−3%) | 382 / 383 (±0%) |      200 / 211 (−5%) |
+| nested, licm bait       | 393 / 394 (±0%) | 372 / 381 (−2%) |      654 / 649 (+1%) |
+| gvn, redundancy bait    | 394 / 396 (−1%) | 378 / 386 (−2%) | **350 / 614 (−43%)** |
+| calls, inlining bait    | **414 / 506 (−18%)** | 437 / 487 (−10%) | **389 / 620 (−37%)** |
+| phi, branch-heavy       | 460 / 482 (−5%) | 511 / 517 (−1%) | **386 / 498 (−22%)** |
+| orbit, whole program    | 397 / 386 (+3%) | 387 / 397 (−3%) |     381 / 427 (−11%) |
 | sum_tail, deep recursion | 12.5e12 (correct) / trap: stack exhausted | | |
 
 
