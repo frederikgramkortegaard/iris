@@ -2,10 +2,10 @@
 
 ![CI](https://github.com/frederikgramkortegaard/iris/actions/workflows/ci.yml/badge.svg)
 
-A compiler for a custom language targeting WebAssembly, built from scratch in Rust with no external dependencies. It implements a full SSA-based optimization pipeline and uses [Ramsey's (2022)](https://dl.acm.org/doi/10.1145/3547621) algorithm to recover structured control flow from reducible CFGs, producing WebAssembly-compatible constructs without heuristic restructuring.
+Iris is a compiler for a custom language targeting WebAssembly, written from scratch in Rust with no external dependencies. The mid-end implements a full SSA-based optimization pipeline, and the back-end uses [Ramsey's (2022)](https://dl.acm.org/doi/10.1145/3547621) algorithm to recover structured control flow from the CFG. We chose this algorithm over heuristic restructuring as it is correct for any reducible CFG by construction, rather than for the set of shapes we happened to anticipate.
 
 - SSA construction via iterated dominance frontiers and dominator tree renaming, with correct SSA deconstruction via parallel copies
-- Optimization passes: constant propagation, CSE, LICM, copy propagation, DCE, tail call optimization, dead block elimination, register compaction, peephole optimization
+- Optimization passes: constant propagation, CSE, LICM, copy propagation, DCE, function inlining, tail call optimization, dead block elimination, register compaction, peephole optimization
 - SCEV (Scalar Evolution) / Induction Variable Analysis, Trip Count Computation
 - [Ramsey (2022)](https://dl.acm.org/doi/10.1145/3547621) structure recovery for CFG -> structured WebAssembly
 - Visitor pattern for traversal and transformation of both HIR and MIR
@@ -24,7 +24,7 @@ fn triangular(n: f64) -> f64 {
 }
 ```
 
-After CFG construction and SSA conversion, `s` and `i` each require a phi node at the loop header - one incoming value from the entry block and one from the loop back edge:
+After CFG construction and SSA conversion, `s` and `i` each require a phi node at the loop header, with one incoming value from the entry block and one from the loop back edge:
 
 ```
 fn triangular(1 params: [r0]) -> F64:
@@ -48,7 +48,7 @@ block3:
     ret r3
 ```
 
-Ramsey's structure recovery converts the reducible CFG into structured control flow (`if/else`, `loop` blocks) that maps cleanly to WebAssembly:
+The back-end then recovers structured control flow from the CFG. Here it is important to note that WebAssembly has no arbitrary jumps, a `br` instruction can only target a construct it is nested inside of, and the placement of `block` and `loop` constructs is therefore what encodes the edges of the CFG:
 
 ```wat
 (module
@@ -94,7 +94,7 @@ Ramsey's structure recovery converts the reducible CFG into structured control f
 
 ## Optimization effect
 
-DCE combined with constant propagation eliminates all values not reaching the return. After constant propagation and dead code removal, the function reduces to a single addition.
+Constant propagation and DCE together eliminate every value which does not reach the return. In the following example, this reduces the function to a single addition.
 
 ```
 fn main() -> f64 {
@@ -168,27 +168,29 @@ Source (.iris)
 
 ## Optimization passes
 
-All passes operate on the MIR in SSA form and run to a fixed point in an iterative pipeline, since each pass exposes new opportunities for the next.
+All passes operate on the MIR in SSA form. Each pass exposes new
+opportunities for the next, and we therefore simply run them in an
+iterative pipeline until a fixed point is reached.
 
-**Constant Propagation** - tracks constant values through copy instructions in the SSA def-use graph, replacing register uses with their constant values where known.
+- **Constant propagation**
+- **CSE** -- dominator-scoped, keyed on register names, so not full value
+  numbering. Calls and copies are left alone.
+- **LICM** -- hoists loop-invariant instructions to a preheader, natural
+  loops found via back edges.
+- **Copy propagation**
+- **DCE** -- backwards from live outputs.
+- **Function inlining** -- bottom-up over the callgraph. Callees containing
+  a loop are never inlined, as the loop already amortizes the call
+  overhead, and inlining mandel's cell() into the pixel loop made it 12%
+  slower.
+- **Tail call optimization** -- rewrites tail recursion into branches, such
+  that recursion depth is no longer bound by the stack.
+- **Dead block elimination**
+- **IV analysis / SCEV** -- induction variables from header phis, trip
+  counts from exit conditions.
 
-**CSE** (Common Subexpression Elimination) - dominator-scoped: an instruction recomputing an expression already computed in a dominating block gets replaced with a copy of the earlier result. Keyed on register names, so not full value numbering. Calls are never merged since they may have side effects.
-
-**LICM** (Loop Invariant Code Motion) - identifies instructions whose operands are all loop-external and hoists them to the loop preheader, using natural loop detection via back edges identified from the dominator tree.
-
-**Copy Propagation** - walks def-use chains and replaces copies with their source operand, cleaning up chains that accumulate from earlier passes.
-
-**DCE** (Dead Code Elimination) - works backwards from live outputs. In SSA form each value has exactly one definition, so use chains are explicit and dead instructions are unambiguous.
-
-**Tail Call Optimization** - detects tail-recursive calls in the MIR and rewrites them into direct branches before SSA deconstruction, eliminating stack growth from recursive calls.
-
-**Dead Block Elimination** - removes basic blocks that become unreachable once the CFG is finalized.
-
-**Induction Variable Analysis** - identifies basic induction variables (BIVs) from phi nodes in loop headers by pattern matching `i = phi(init, i + step)` recurrences.
-
-**SCEV** (Scalar Evolution) - analyzes how scalar values evolve across loop iterations. Combined with exit condition analysis, computes trip counts as constant values or symbolic expressions.
-
-SSA is deconstructed back to conventional form using parallel copies to correctly handle lost-copy and swap cases at phi node boundaries.
+SSA is deconstructed back to conventional form with parallel copies
+(lost-copy and swap cases).
 
 ## Optimization in numbers
 
@@ -201,43 +203,51 @@ pipeline (`--no-opt`):
 | dce             |     27 |         3 |
 | copy_prop       |     24 |         9 |
 | gvn             |     60 |        31 |
-| join_points     |    120 |        84 |
-| triangular      |     39 |        30 |
-| ssa_deconstruct |    257 |       193 |
-| tailcall        |     50 |        58 |
+| join_points     |    144 |       108 |
+| triangular      |     41 |        32 |
+| ssa_deconstruct |    285 |       221 |
+| tailcall        |     50 |        64 |
 
-tailcall grows because tail call optimization trades a few parameter copies
-for eliminating the calls entirely, which shows up at runtime instead (see
-below).
+It should be noted that tailcall grows, as tail call optimization trades a
+few parameter copies for eliminating the calls entirely, a win which
+instead shows up at run time (see below).
 
 ## Benchmarks
 
-`bench/run.sh` times compute-heavy programs (`bench/*.iris`) compiled with
-and without the optimization pipeline, via hyperfine (2 warmups, 10 runs,
-outlier detection). Each one runs under two engine configs: wasmtime
-default, and `wasmtime -O opt-level=0` which disables cranelift's own
-optimizer -- that second config isolates what iris's optimizer contributes,
-instead of letting the JIT redo the work and hide it. Workloads are sized
-to ~600ms so process startup (~15ms) is noise. Both variants are checked
-for identical results before anything is timed.
+`bench/run.sh` times the compute-heavy programs in `bench/` compiled with
+and without the optimization pipeline, using hyperfine with 2 warmups and
+10 runs. Each program runs under two engine configurations: wasmtime with
+its defaults, and `wasmtime -O opt-level=0`, which disables cranelift's own
+optimizer. We added the second configuration as we noticed that the JIT
+otherwise re-derives most of what the mid-end has already done, making it
+impossible to tell which improvements are actually ours. Both variants are
+checked for identical results before anything is timed.
 
 | benchmark                  | engine        | no-opt   | opt      |
 |----------------------------|---------------|---------:|---------:|
-| fib(40), call-heavy        | jit           |   780 ms |   781 ms |
-| fib(40)                    | jit opt off   |   781 ms |   779 ms |
-| mandel(1200^2), float-heavy| jit           |   578 ms |   577 ms |
-| mandel(1200^2)             | jit opt off   |   587 ms |   586 ms |
-| nested(3e8 iters), licm    | jit           |   574 ms |   574 ms |
-| nested(3e8 iters)          | jit opt off   |   599 ms |   583 ms |
+| fib(40), call-heavy        | jit           |   541 ms |   527 ms |
+| fib(40)                    | jit opt off   |   526 ms |   534 ms |
+| mandel(1200^2), float-heavy| jit           |   393 ms |   390 ms |
+| mandel(1200^2)             | jit opt off   |   390 ms |   389 ms |
+| nested(3e8 iters), licm    | jit           |   407 ms |   407 ms |
+| nested(3e8 iters)          | jit opt off   |   408 ms |   398 ms |
 | sum_tail(5e6), deep recursion | jit        |  trap: stack exhausted | 12.5e12 (correct) |
 
-Honest readout: with cranelift's optimizer on, iris's mid-end makes no
-measurable runtime difference -- the JIT re-derives everything a second
-time. With it off, LICM shows up as a real 2.8% on its target workload
-(599.4 ms -> 582.9 ms, sigma ~1-2.6 ms). The wins that survive a modern
-JIT are code size (table above) and tail call optimization, which is not a
-speedup but a capability: recursion depth goes from stack-bound to
-unbounded, so `sum_tail(5000000)` traps without it and just runs with it.
+With cranelift's optimizer enabled the two columns are within noise of each
+other on every benchmark. This is the expected outcome for a mid-end
+running in front of a modern JIT, and we consider the honest wins to be
+elsewhere: the instruction counts in the previous section, and the fact
+that `sum_tail(5000000)` exhausts the call stack without tail call
+optimization and simply runs with it. With the optimizer disabled, LICM
+accounts for a measurable difference on the workload built for it
+(408 ms to 398 ms on nested).
+
+It should also be noted that the benchmarks changed one of our passes.
+The inlining pass initially inlined every non-recursive call, and mandel
+became 12% slower as a result, since inlining cell() into the pixel loop
+increased register pressure where it matters most. The call overhead it
+removed was already amortized by the loop inside cell() itself. As a
+consequence of this, callees containing a loop are never inlined.
 
 ## Building
 
@@ -279,19 +289,19 @@ cargo test
 ```
 
 Unit tests cover the lexer, parser and typechecker. The end-to-end suite
-(`tests/e2e.sh`) compiles every file in `examples/`, runs the resulting wasm
-with wasmtime and checks each exported function against `# EXPECTED:`
-annotations in the source itself:
+(`tests/e2e.rs`) compiles every file in `examples/` with the real binary,
+runs the resulting wasm with wasmtime, and checks each exported function
+against the `# EXPECTED:` annotations in the source itself:
 
 ```
 # EXPECTED: factorial(5) == 120
 # EXPECTED: simple() traps
 ```
 
-Every example is also compiled twice and the outputs diffed, so the compiler
-stays deterministic. The suite runs as part of `cargo test` when wasmtime is
-on PATH, and in CI, where the generated `.wat` for all examples is uploaded
-as an artifact on every run.
+Every example is further compiled twice and the two outputs compared, such
+that the compiler is known to stay deterministic. The suite runs as part of
+`cargo test` when wasmtime is on PATH, and in CI, where the generated
+`.wat` for all examples is uploaded as an artifact on every run.
 
 ## Project structure
 
@@ -314,8 +324,11 @@ src/
 |   |   |-- cfg.rs                   # CFG, dominators, dominance frontiers
 |   |   |-- dfg.rs                   # Data flow graph, def-use chains
 |   |   |-- loops.rs                 # Loop detection, natural loops
+|   |   |-- callgraph.rs             # Callgraph construction
+|   |   |-- recursion.rs             # Recursive-function detection
 |   |   +-- iv.rs                    # Induction variable detection
 |   +-- passes/
+|       |-- inlining.rs              # Function inlining
 |       |-- ssa.rs                   # Phi insertion, variable renaming
 |       |-- deconstruct.rs           # SSA deconstruction
 |       |-- const_prop.rs            # Constant propagation
@@ -330,9 +343,8 @@ src/
 |
 +-- codegen/
     +-- wasm/
-        |-- ramsey.rs                # Structure recovery from CFG
         |-- types.rs                 # WAT IR types
-        |-- lower.rs                 # MIR -> WAT IR
+        |-- lower.rs                 # Structure recovery + MIR -> WAT IR
         |-- peephole.rs              # WAT peephole optimization
         +-- emit.rs                  # WAT IR -> text output
 ```
