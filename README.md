@@ -167,26 +167,18 @@ Source (.iris)
 
 ## Optimization passes
 
-All passes operate on the MIR in SSA form. Each pass exposes new
-opportunities for the next, and we therefore simply run them in an
-iterative pipeline until a fixed point is reached.
+All passes operate on the MIR in SSA form and run in an iterative
+pipeline until a fixed point is reached.
 
-- **Constant propagation**
-- **CSE** -- dominator-scoped, keyed on register names, so not full value
-  numbering. Calls and copies are left alone.
-- **LICM** -- hoists loop-invariant instructions to a preheader, natural
-  loops found via back edges.
-- **Copy propagation**
-- **DCE** -- backwards from live outputs.
-- **Function inlining** -- bottom-up over the callgraph. Callees containing
-  a loop are never inlined, as the loop already amortizes the call
-  overhead, and inlining mandel's cell() into the pixel loop made it 12%
-  slower.
-- **Tail call optimization** -- rewrites tail recursion into branches, such
-  that recursion depth is no longer bound by the stack.
-- **Dead block elimination**
-- **IV analysis / SCEV** -- induction variables from header phis, trip
-  counts from exit conditions.
+- Constant propagation
+- CSE, dominator-scoped
+- LICM
+- Copy propagation
+- DCE
+- Function inlining
+- Tail call optimization
+- Dead block elimination
+- IV analysis / SCEV
 
 SSA is deconstructed back to conventional form with parallel copies
 (lost-copy and swap cases).
