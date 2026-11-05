@@ -79,7 +79,10 @@ impl MirCSEPass {
         for instruction in &mut block.instructions {
             // Calls are impure, merging two identical calls would change
             // how often they run. DCE already treats them as side-effecting.
-            if instruction.op == Opcode::Call {
+            // Copies belong to copy_prop: CSE-ing `p2 = copy q` into
+            // `p2 = copy p1` just gets undone by copy_prop next iteration
+            // and the two passes ping-pong forever.
+            if instruction.op == Opcode::Call || instruction.op == Opcode::Copy {
                 continue;
             }
 
@@ -107,8 +110,6 @@ impl MirCSEPass {
 }
 
 impl MirVisitor for MirCSEPass {
-    type Output = ();
-
     fn diagnostics(&self) -> &DiagnosticCollector {
         &self.diagnostics
     }
@@ -117,7 +118,7 @@ impl MirVisitor for MirCSEPass {
         &mut self.diagnostics
     }
 
-    fn visit_function(&mut self, function: &mut Function) -> Self::Output {
+    fn visit_function(&mut self, function: &mut Function) {
         let (preds, succs) = cfg::compute_cfg(function);
         let doms = cfg::compute_dominators(function, &preds);
         let dtree = cfg::compute_dominator_tree(function, &doms, &succs);
